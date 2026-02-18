@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Convertly — File Converter</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #f7f8fc;
+      color: #1a1d2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e8eaf0;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a1d2e;
+    }
+    .logo-badge {
+      width: 32px; height: 32px;
+      background: #4f6ef7;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .header-tag {
+      font-size: 12px;
+      color: #8b90a7;
+      background: #f0f2ff;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 48px 24px 32px;
+    }
+    .hero h1 {
+      font-size: clamp(28px, 6vw, 42px);
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 12px;
+    }
+    .hero h1 span { color: #4f6ef7; }
+    .hero p {
+      font-size: 15px;
+      color: #8b90a7;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* ── Main card ── */
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 0 16px 60px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid #e8eaf0;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+
+    /* ── Mode grid ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #8b90a7;
+      text-transform: uppercase;
+      padding: 20px 20px 12px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 0 16px 16px;
+    }
+
+    .mode-btn {
+      border: 2px solid #e8eaf0;
+      border-radius: 12px;
+      padding: 14px 14px 12px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      background: #fff;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+    }
+    .mode-btn:hover { border-color: #c5caff; background: #f8f9ff; }
+    .mode-btn.active {
+      border-color: var(--color);
+      background: var(--light);
+    }
+    .mode-btn.active .mode-check { opacity: 1; }
+
+    .mode-icon-wrap {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: var(--light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .mode-btn.active .mode-icon-wrap { background: #fff; }
+
+    .mode-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1a1d2e;
+    }
+    .mode-desc {
+      font-size: 11px;
+      color: #8b90a7;
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    .mode-check {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--color);
+      color: #fff;
+      font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    /* ── Divider ── */
+    .divider { height: 1px; background: #e8eaf0; margin: 0 16px; }
+
+    /* ── File zone ── */
+    .file-zone {
+      margin: 16px;
+      border: 2px dashed #d0d4e0;
+      border-radius: 12px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.18s;
+      position: relative;
+    }
+    .file-zone:hover, .file-zone.dragover {
+      border-color: #4f6ef7;
+      background: #f0f2ff;
+    }
+    .file-zone input[type=file] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .file-zone-icon { font-size: 36px; margin-bottom: 10px; }
+    .file-zone-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1d2e;
+      margin-bottom: 4px;
+    }
+    .file-zone-sub { font-size: 12px; color: #8b90a7; }
+    .file-zone.has-file { border-style: solid; border-color: #4f6ef7; background: #f0f2ff; }
+    .file-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #4f6ef7;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    /* ── Convert button ── */
+    .convert-btn {
+      display: block;
+      width: calc(100% - 32px);
+      margin: 0 16px 16px;
+      padding: 15px;
+      background: #4f6ef7;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.1s;
+    }
+    .convert-btn:hover { background: #3a58e0; }
+    .convert-btn:active { transform: scale(0.98); }
+    .convert-btn:disabled {
+      background: #b0b5c8;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── Progress ── */
+    .progress-wrap {
+      padding: 0 16px 16px;
+      display: none;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-bar-bg {
+      height: 6px;
+      background: #e8eaf0;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #4f6ef7;
+      border-radius: 99px;
+      transition: width 0.3s;
+      animation: indeterminate 1.2s infinite ease-in-out;
+    }
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); width: 60%; }
+      100% { transform: translateX(200%);  width: 60%; }
+    }
+    .progress-label {
+      font-size: 12px;
+      color: #8b90a7;
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #b0b5c8;
+    }
+    footer strong { color: #8b90a7; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1a1d2e;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      transition: transform 0.3s ease;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { background: #f43f5e; }
+    .toast.success { background: #10b981; }
+
+    /* ── Mobile ── */
+    @media (max-width: 480px) {
+      .hero { padding: 32px 16px 24px; }
+      .mode-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-badge">C</div>
+    Convertly
+  </div>
+  <span class="header-tag">Free · Local · Fast</span>
+</header>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>Convert any<br><span>document</span> format.</h1>
+  <p>PDF, Word, and Excel — convert instantly from any device, no sign up needed.</p>
+</div>
+
+<!-- Main -->
+<div class="container">
+  <div class="card">
+
+    <!-- Mode selector -->
+    <div class="section-label">1 &nbsp;·&nbsp; Choose conversion type</div>
+    <div class="mode-grid">
+
+      <button class="mode-btn active" data-mode="pdf-to-word"
+        style="--color:#4f6ef7;--light:#eef1ff">
+        <div class="mode-icon-wrap">📄</div>
+        <div class="mode-label">PDF → Word</div>
+        <div class="mode-desc">Editable Word document</div>
+        <div class="mode-check">✓</div>
+      </button>
+
+      <button class="mode-btn" data-mode="pdf-to-excel"
+        style="--color:#10b981;--light:#ecfdf5">
+        <div class="mode-icon-wrap">📊</div>
+        <div class="mode-label">PDF → Excel</div>
+        <div class="mode-desc">Extract tables to sheet</div>
+        <div class="mode-check">✓</div>
+      </button>
+
+      <button class="mode-btn" data-mode="word-to-pdf"
+        style="--color:#f43f5e;--light:#fff1f3">
+        <div class="mode-icon-wrap">📝</div>
+        <div class="mode-label">Word → PDF</div>
+        <div class="mode-desc">Word doc to PDF file</div>
+        <div class="mode-check">✓</div>
+      </button>
+
+      <button class="mode-btn" data-mode="excel-to-pdf"
+        style="--color:#f59e0b;--light:#fffbeb">
+        <div class="mode-icon-wrap">📈</div>
+        <div class="mode-label">Excel → PDF</div>
+        <div class="mode-desc">Spreadsheet to PDF</div>
+        <div class="mode-check">✓</div>
+      </button>
+
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- File picker -->
+    <div class="section-label" style="padding-top:16px">2 &nbsp;·&nbsp; Upload your file</div>
+
+    <div class="file-zone" id="dropZone">
+      <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx" />
+      <div class="file-zone-icon" id="zoneIcon">☁️</div>
+      <div class="file-zone-title">Drag & drop your file here</div>
+      <div class="file-zone-sub">or click to browse</div>
+      <div class="file-name" id="fileName"></div>
+    </div>
+
+    <!-- Convert -->
+    <button class="convert-btn" id="convertBtn" onclick="doConvert()">
+      ⚡  Convert Now
+    </button>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-label" id="progressLabel">Converting your file...</div>
+    </div>
+
+  </div>
+
+  <footer>
+    🔒 &nbsp;<strong>Your files are converted locally.</strong> Nothing is uploaded to external servers.
+  </footer>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  const ACCEPTS = {
+    "pdf-to-word":  ".pdf",
+    "pdf-to-excel": ".pdf",
+    "word-to-pdf":  ".docx",
+    "excel-to-pdf": ".xlsx",
+  };
+
+  const COLORS = {
+    "pdf-to-word":  "#4f6ef7",
+    "pdf-to-excel": "#10b981",
+    "word-to-pdf":  "#f43f5e",
+    "excel-to-pdf": "#f59e0b",
+  };
+
+  let activeMode = "pdf-to-word";
+  let selectedFile = null;
+
+  // Mode selection
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeMode = btn.dataset.mode;
+
+      const color = COLORS[activeMode];
+      document.getElementById("convertBtn").style.background = color;
+      document.getElementById("progressFill").style.background = color;
+      document.getElementById("fileInput").accept = ACCEPTS[activeMode];
+
+      // Reset file if wrong type
+      selectedFile = null;
+      document.getElementById("fileName").textContent = "";
+      document.getElementById("dropZone").classList.remove("has-file");
+      document.getElementById("zoneIcon").textContent = "☁️";
+    });
+  });
+
+  // File input
+  document.getElementById("fileInput").addEventListener("change", e => {
+    handleFile(e.target.files[0]);
+  });
+
+  // Drag & drop
+  const zone = document.getElementById("dropZone");
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("dragover"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+  zone.addEventListener("drop", e => {
+    e.preventDefault();
+    zone.classList.remove("dragover");
+    handleFile(e.dataTransfer.files[0]);
+  });
+
+  function handleFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    const name = file.name;
+    document.getElementById("fileName").textContent = name.length > 40 ? name.slice(0,37)+"..." : name;
+    document.getElementById("dropZone").classList.add("has-file");
+    document.getElementById("zoneIcon").textContent = "📄";
+  }
+
+  // Convert
+  async function doConvert() {
+    if (!selectedFile) { showToast("Please select a file first.", "error"); return; }
+
+    const btn = document.getElementById("convertBtn");
+    const progress = document.getElementById("progressWrap");
+
+    btn.disabled = true;
+    btn.textContent = "Converting...";
+    progress.classList.add("visible");
+
+    const form = new FormData();
+    form.append("file", selectedFile);
+    form.append("mode", activeMode);
+
+    try {
+      const res = await fetch("/convert", { method: "POST", body: form });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Conversion failed.");
+      }
+
+      const blob = await res.blob();
+      const cd   = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const fname = match ? match[1] : "converted_file";
+
+      // Trigger download
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement("a");
+      a.href = url; a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast("✅  Done! File downloaded.", "success");
+
+    } catch (err) {
+      showToast("❌  " + err.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "⚡  Convert Now";
+      progress.classList.remove("visible");
+    }
+  }
+
+  function showToast(msg, type = "") {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = "toast " + type;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3500);
+  }
+</script>
+</body>
+</html>
