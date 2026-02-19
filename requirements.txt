@@ -4,3 +4,4 @@ pdfplumber
 openpyxl
 docx2pdf
 gunicorn
+reportlab

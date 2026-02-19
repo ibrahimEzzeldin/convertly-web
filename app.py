@@ -36,11 +36,42 @@ def word_to_pdf(src, out):
     convert(src, out)
 
 def excel_to_pdf(src, out):
-    import subprocess
-    subprocess.run([
-        "soffice", "--headless", "--convert-to", "pdf",
-        "--outdir", os.path.dirname(out), src
-    ])
+    import openpyxl
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    
+    # Load workbook
+    wb = openpyxl.load_workbook(src)
+    ws = wb.active
+    
+    # Create PDF
+    doc = SimpleDocTemplate(out, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    elements = []
+    
+    # Extract data from worksheet
+    data = []
+    for row in ws.iter_rows(values_only=True):
+        data.append([str(cell) if cell is not None else "" for cell in row])
+    
+    if data:
+        # Create table
+        table = Table(data, colWidths=[1.5*inch]*min(len(data[0]), 5))
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ]))
+        elements.append(table)
+    
+    doc.build(elements)
 
 MODES = {
     "pdf-to-word":  {"fn": pdf_to_word,  "ext": ".docx"},
