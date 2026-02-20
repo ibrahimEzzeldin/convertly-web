@@ -1,9 +1,17 @@
 from flask import Flask, render_template, request, send_file, jsonify
+from dotenv import load_dotenv
 import os, uuid
 
+# Load environment variables from .env file
+load_dotenv()
+
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = "uploads"
-app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER", "uploads")
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", 32 * 1024 * 1024))
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-key-change-in-production")
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE", "True").lower() == "true"
+app.config["SESSION_COOKIE_HTTPONLY"] = os.getenv("SESSION_COOKIE_HTTPONLY", "True").lower() == "true"
+app.config["SESSION_COOKIE_SAMESITE"] = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 
 os.makedirs("uploads", exist_ok=True)
 
@@ -107,4 +115,7 @@ def convert():
     return send_file(out, as_attachment=True, download_name=out_name)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    port = int(os.getenv("FLASK_PORT", 5000))
+    host = os.getenv("HOST", "0.0.0.0")
+    app.run(debug=debug_mode, host=host, port=port)

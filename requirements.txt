@@ -5,3 +5,4 @@ openpyxl
 docx2pdf
 gunicorn
 reportlab
+python-dotenv
