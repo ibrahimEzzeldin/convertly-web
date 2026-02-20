@@ -52,6 +52,17 @@
       padding: 4px 10px;
       border-radius: 20px;
     }
+    .paid-badge {
+      font-size: 12px;
+      color: #10b981;
+      background: #ecfdf5;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 700;
+      display: none;
+      border: 1px solid #a7f3d0;
+    }
+    .paid-badge.visible { display: inline-block; }
 
     /* ── Hero ── */
     .hero {
@@ -78,7 +89,6 @@
       margin: 0 auto;
       padding: 0 16px 60px;
     }
-
     .card {
       background: #fff;
       border-radius: 16px;
@@ -86,6 +96,43 @@
       overflow: hidden;
       box-shadow: 0 4px 24px rgba(0,0,0,0.06);
     }
+
+    /* ── Quota banner ── */
+    .quota-banner {
+      margin: 16px 16px 0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      background: #f0f2ff;
+      border: 1px solid #c5caff;
+      color: #1a1d2e;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .quota-banner.warn {
+      background: #fffbeb;
+      border-color: #fcd34d;
+    }
+    .quota-banner.exhausted {
+      background: #fff1f3;
+      border-color: #fda4af;
+    }
+    .quota-pips {
+      display: flex;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .quota-pip {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #e8eaf0;
+      transition: background 0.2s;
+    }
+    .quota-pip.used { background: #4f6ef7; }
+    .quota-pip.paid { background: #10b981; }
 
     /* ── Mode grid ── */
     .section-label {
@@ -96,14 +143,12 @@
       text-transform: uppercase;
       padding: 20px 20px 12px;
     }
-
     .mode-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
       padding: 0 16px 16px;
     }
-
     .mode-btn {
       border: 2px solid #e8eaf0;
       border-radius: 12px;
@@ -121,7 +166,6 @@
       background: var(--light);
     }
     .mode-btn.active .mode-check { opacity: 1; }
-
     .mode-icon-wrap {
       width: 36px; height: 36px;
       border-radius: 8px;
@@ -131,30 +175,16 @@
       margin-bottom: 10px;
     }
     .mode-btn.active .mode-icon-wrap { background: #fff; }
-
-    .mode-label {
-      font-size: 13px;
-      font-weight: 700;
-      color: #1a1d2e;
-    }
-    .mode-desc {
-      font-size: 11px;
-      color: #8b90a7;
-      margin-top: 2px;
-      line-height: 1.4;
-    }
-
+    .mode-label { font-size: 13px; font-weight: 700; color: #1a1d2e; }
+    .mode-desc  { font-size: 11px; color: #8b90a7; margin-top: 2px; line-height: 1.4; }
     .mode-check {
-      position: absolute;
-      top: 10px; right: 10px;
+      position: absolute; top: 10px; right: 10px;
       width: 20px; height: 20px;
       border-radius: 50%;
       background: var(--color);
-      color: #fff;
-      font-size: 11px;
+      color: #fff; font-size: 11px;
       display: flex; align-items: center; justify-content: center;
-      opacity: 0;
-      transition: opacity 0.15s;
+      opacity: 0; transition: opacity 0.15s;
     }
 
     /* ── Divider ── */
@@ -179,21 +209,13 @@
       position: absolute; inset: 0;
       opacity: 0; cursor: pointer; width: 100%; height: 100%;
     }
-    .file-zone-icon { font-size: 36px; margin-bottom: 10px; }
-    .file-zone-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #1a1d2e;
-      margin-bottom: 4px;
-    }
-    .file-zone-sub { font-size: 12px; color: #8b90a7; }
+    .file-zone-icon  { font-size: 36px; margin-bottom: 10px; }
+    .file-zone-title { font-size: 14px; font-weight: 600; color: #1a1d2e; margin-bottom: 4px; }
+    .file-zone-sub   { font-size: 12px; color: #8b90a7; }
     .file-zone.has-file { border-style: solid; border-color: #4f6ef7; background: #f0f2ff; }
     .file-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: #4f6ef7;
-      margin-top: 8px;
-      word-break: break-all;
+      font-size: 13px; font-weight: 600; color: #4f6ef7;
+      margin-top: 8px; word-break: break-all;
     }
 
     /* ── Convert button ── */
@@ -204,85 +226,111 @@
       padding: 15px;
       background: #4f6ef7;
       color: #fff;
-      font-size: 15px;
-      font-weight: 700;
-      border: none;
-      border-radius: 12px;
+      font-size: 15px; font-weight: 700;
+      border: none; border-radius: 12px;
       cursor: pointer;
       transition: background 0.18s, transform 0.1s;
     }
-    .convert-btn:hover { background: #3a58e0; }
+    .convert-btn:hover  { background: #3a58e0; }
     .convert-btn:active { transform: scale(0.98); }
-    .convert-btn:disabled {
-      background: #b0b5c8;
-      cursor: not-allowed;
-      transform: none;
-    }
+    .convert-btn:disabled { background: #b0b5c8; cursor: not-allowed; transform: none; }
 
     /* ── Progress ── */
-    .progress-wrap {
-      padding: 0 16px 16px;
-      display: none;
-    }
+    .progress-wrap { padding: 0 16px 16px; display: none; }
     .progress-wrap.visible { display: block; }
     .progress-bar-bg {
-      height: 6px;
-      background: #e8eaf0;
-      border-radius: 99px;
-      overflow: hidden;
+      height: 6px; background: #e8eaf0;
+      border-radius: 99px; overflow: hidden;
     }
     .progress-bar-fill {
-      height: 100%;
-      width: 0%;
-      background: #4f6ef7;
-      border-radius: 99px;
-      transition: width 0.3s;
+      height: 100%; width: 0%;
+      background: #4f6ef7; border-radius: 99px;
       animation: indeterminate 1.2s infinite ease-in-out;
     }
     @keyframes indeterminate {
       0%   { transform: translateX(-100%); width: 60%; }
       100% { transform: translateX(200%);  width: 60%; }
     }
-    .progress-label {
-      font-size: 12px;
-      color: #8b90a7;
-      margin-top: 6px;
-      text-align: center;
-    }
+    .progress-label { font-size: 12px; color: #8b90a7; margin-top: 6px; text-align: center; }
 
     /* ── Footer ── */
-    footer {
-      text-align: center;
-      padding: 20px;
-      font-size: 12px;
-      color: #b0b5c8;
-    }
+    footer { text-align: center; padding: 20px; font-size: 12px; color: #b0b5c8; }
     footer strong { color: #8b90a7; }
 
     /* ── Toast ── */
     .toast {
-      position: fixed;
-      bottom: 24px; left: 50%;
+      position: fixed; bottom: 24px; left: 50%;
       transform: translateX(-50%) translateY(80px);
-      background: #1a1d2e;
-      color: #fff;
-      padding: 12px 24px;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 600;
+      background: #1a1d2e; color: #fff;
+      padding: 12px 24px; border-radius: 12px;
+      font-size: 14px; font-weight: 600;
       box-shadow: 0 8px 32px rgba(0,0,0,0.2);
       transition: transform 0.3s ease;
-      z-index: 999;
-      white-space: nowrap;
+      z-index: 999; white-space: nowrap;
     }
-    .toast.show { transform: translateX(-50%) translateY(0); }
-    .toast.error { background: #f43f5e; }
+    .toast.show  { transform: translateX(-50%) translateY(0); }
+    .toast.error   { background: #f43f5e; }
     .toast.success { background: #10b981; }
+
+    /* ── Upgrade modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(26,29,46,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 500;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px 28px 28px;
+      max-width: 380px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+      text-align: center;
+    }
+    .modal-icon   { font-size: 44px; margin-bottom: 14px; }
+    .modal h2     { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    .modal p      { font-size: 14px; color: #8b90a7; margin-bottom: 20px; line-height: 1.5; }
+    .modal-features {
+      list-style: none; text-align: left;
+      margin-bottom: 22px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .modal-features li {
+      font-size: 13px; color: #1a1d2e;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .modal-features li::before { content: "✓"; color: #10b981; font-weight: 800; font-size: 14px; }
+    .upgrade-btn {
+      width: 100%; padding: 15px;
+      background: #4f6ef7; color: #fff;
+      font-size: 15px; font-weight: 700;
+      border: none; border-radius: 12px; cursor: pointer;
+      transition: background 0.18s;
+    }
+    .upgrade-btn:hover    { background: #3a58e0; }
+    .upgrade-btn:disabled { background: #b0b5c8; cursor: not-allowed; }
+    .modal-cancel {
+      display: block; margin-top: 14px;
+      font-size: 13px; color: #8b90a7;
+      cursor: pointer; background: none; border: none;
+    }
+    .modal-cancel:hover { color: #1a1d2e; }
+    .price-tag {
+      display: inline-block;
+      background: #f0f2ff; border: 1px solid #c5caff;
+      border-radius: 8px; padding: 8px 16px;
+      margin-bottom: 20px;
+    }
+    .price-tag .price { font-size: 28px; font-weight: 800; color: #4f6ef7; }
+    .price-tag .price-sub { font-size: 12px; color: #8b90a7; }
 
     /* ── Mobile ── */
     @media (max-width: 480px) {
       .hero { padding: 32px 16px 24px; }
-      .mode-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .mode-grid { gap: 8px; }
     }
   </style>
 </head>
@@ -294,18 +342,30 @@
     <div class="logo-badge">C</div>
     Convertly
   </div>
-  <span class="header-tag">Secured · Local · Fast</span>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span class="header-tag">Secured · Fast</span>
+    <span class="paid-badge" id="paidBadge">⚡ Pro Unlocked</span>
+  </div>
 </header>
 
 <!-- Hero -->
 <div class="hero">
   <h1>Convert any<br><span>document</span> format.</h1>
-  <p>PDF, Word, and Excel — convert instantly from any device, no sign up needed.</p>
+  <p>PDF, Word, and Excel — convert instantly from any device, no sign-up needed.</p>
 </div>
 
 <!-- Main -->
 <div class="container">
   <div class="card">
+
+    <!-- Quota banner -->
+    <div class="quota-banner" id="quotaBanner">
+      <div>
+        <strong id="quotaText">Loading...</strong>
+        <div style="font-size:11px;color:#8b90a7;margin-top:2px" id="quotaSub"></div>
+      </div>
+      <div class="quota-pips" id="quotaPips"></div>
+    </div>
 
     <!-- Mode selector -->
     <div class="section-label">1 &nbsp;·&nbsp; Choose conversion type</div>
@@ -368,27 +428,49 @@
       <div class="progress-bar-bg">
         <div class="progress-bar-fill" id="progressFill"></div>
       </div>
-      <div class="progress-label" id="progressLabel">Converting your file...</div>
+      <div class="progress-label">Converting your file...</div>
     </div>
 
   </div>
 
   <footer>
-    🔒 &nbsp;<strong>Your files are converted locally.</strong> Nothing is uploaded to external servers.
+    🔒 &nbsp;<strong>Your files are converted securely.</strong> Files are deleted immediately after download.
   </footer>
 </div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Upgrade modal -->
+<div class="modal-overlay" id="upgradeModal">
+  <div class="modal">
+    <div class="modal-icon">🚀</div>
+    <h2>Unlock More Conversions</h2>
+    <p>You've used all your free conversions. Get <strong id="paidAmount">20</strong> more for a one-time payment — no subscription.</p>
+    <div class="price-tag">
+      <div class="price" id="upgradePrice">$2.00</div>
+      <div class="price-sub">one-time · no subscription</div>
+    </div>
+    <ul class="modal-features">
+      <li><span id="paidAmountFeature">20</span> additional conversions</li>
+      <li>All 4 conversion formats included</li>
+      <li>Secure checkout via Stripe</li>
+      <li>Instant unlock after payment</li>
+    </ul>
+    <button class="upgrade-btn" id="upgradeBtn" onclick="startCheckout()">
+      Pay &amp; Unlock Conversions
+    </button>
+    <button class="modal-cancel" onclick="closeUpgradeModal()">Maybe later</button>
+  </div>
+</div>
+
 <script>
   const ACCEPTS = {
     "pdf-to-word":  ".pdf",
     "pdf-to-excel": ".pdf",
-    "word-to-pdf":  ".docx",
-    "excel-to-pdf": ".xlsx",
+    "word-to-pdf":  ".docx,.doc",
+    "excel-to-pdf": ".xlsx,.xls",
   };
-
   const COLORS = {
     "pdf-to-word":  "#4f6ef7",
     "pdf-to-excel": "#10b981",
@@ -396,22 +478,94 @@
     "excel-to-pdf": "#f59e0b",
   };
 
-  let activeMode = "pdf-to-word";
+  let activeMode   = "pdf-to-word";
   let selectedFile = null;
+  let quotaState   = { conversions_remaining: 3, conversions_budget: 3, conversions_used: 0, paid: false };
 
-  // Mode selection
+  // ── On load ──────────────────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", async () => {
+    await refreshQuota();
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("paid") === "1") {
+      showToast("Payment confirmed! Conversions unlocked.", "success");
+      window.history.replaceState({}, "", "/");
+    }
+    if (params.get("cancelled") === "1") {
+      showToast("Payment cancelled.", "");
+      window.history.replaceState({}, "", "/");
+    }
+    if (params.get("error")) {
+      showToast("Payment could not be verified. Please contact support.", "error");
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
+  // ── Quota ─────────────────────────────────────────────────────────────────
+  async function refreshQuota() {
+    try {
+      const res  = await fetch("/status", { credentials: "same-origin" });
+      const data = await res.json();
+      quotaState = data;
+      updateQuotaUI(data);
+    } catch (_) { /* non-fatal */ }
+  }
+
+  function updateQuotaUI(data) {
+    const remaining = data.conversions_remaining;
+    const budget    = data.conversions_budget;
+    const used      = data.conversions_used;
+    const paid      = data.paid;
+
+    // Header badge
+    document.getElementById("paidBadge").classList.toggle("visible", paid);
+
+    // Modal amounts
+    const pa = data.paid_amount || 20;
+    document.getElementById("paidAmount").textContent        = pa;
+    document.getElementById("paidAmountFeature").textContent = pa;
+
+    // Banner
+    const banner    = document.getElementById("quotaBanner");
+    const quotaText = document.getElementById("quotaText");
+    const quotaSub  = document.getElementById("quotaSub");
+
+    if (remaining <= 0) {
+      quotaText.textContent = "No conversions remaining";
+      quotaSub.textContent  = "Upgrade to unlock more";
+      banner.className      = "quota-banner exhausted";
+    } else if (remaining === 1) {
+      quotaText.textContent = "1 conversion remaining";
+      quotaSub.textContent  = paid ? "Pro tier active" : "Last free conversion";
+      banner.className      = "quota-banner warn";
+    } else {
+      quotaText.textContent = `${remaining} conversion${remaining !== 1 ? "s" : ""} remaining`;
+      quotaSub.textContent  = paid ? "Pro tier active" : "No sign-up needed";
+      banner.className      = "quota-banner";
+    }
+
+    // Pips (max 10 shown)
+    const pipsEl  = document.getElementById("quotaPips");
+    const maxPips = Math.min(budget, 10);
+    pipsEl.innerHTML = "";
+    for (let i = 0; i < maxPips; i++) {
+      const pip     = document.createElement("div");
+      pip.className = "quota-pip";
+      const scaledUsed = Math.round((used / budget) * maxPips);
+      if (i < scaledUsed) pip.classList.add(paid ? "paid" : "used");
+      pipsEl.appendChild(pip);
+    }
+  }
+
+  // ── Mode selection ────────────────────────────────────────────────────────
   document.querySelectorAll(".mode-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       activeMode = btn.dataset.mode;
-
-      const color = COLORS[activeMode];
-      document.getElementById("convertBtn").style.background = color;
-      document.getElementById("progressFill").style.background = color;
+      document.getElementById("convertBtn").style.background = COLORS[activeMode];
+      document.getElementById("progressFill").style.background = COLORS[activeMode];
       document.getElementById("fileInput").accept = ACCEPTS[activeMode];
-
-      // Reset file if wrong type
       selectedFile = null;
       document.getElementById("fileName").textContent = "";
       document.getElementById("dropZone").classList.remove("has-file");
@@ -419,15 +573,12 @@
     });
   });
 
-  // File input
-  document.getElementById("fileInput").addEventListener("change", e => {
-    handleFile(e.target.files[0]);
-  });
+  // ── File input ────────────────────────────────────────────────────────────
+  document.getElementById("fileInput").addEventListener("change", e => handleFile(e.target.files[0]));
 
-  // Drag & drop
   const zone = document.getElementById("dropZone");
-  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("dragover"); });
-  zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+  zone.addEventListener("dragover",  e => { e.preventDefault(); zone.classList.add("dragover"); });
+  zone.addEventListener("dragleave", ()  => zone.classList.remove("dragover"));
   zone.addEventListener("drop", e => {
     e.preventDefault();
     zone.classList.remove("dragover");
@@ -438,91 +589,123 @@
     if (!file) return;
     selectedFile = file;
     const name = file.name;
-    document.getElementById("fileName").textContent = name.length > 40 ? name.slice(0,37)+"..." : name;
+    document.getElementById("fileName").textContent = name.length > 40 ? name.slice(0, 37) + "..." : name;
     document.getElementById("dropZone").classList.add("has-file");
     document.getElementById("zoneIcon").textContent = "📄";
   }
 
-  // Convert
+  // ── Convert ───────────────────────────────────────────────────────────────
   async function doConvert() {
     if (!selectedFile) { showToast("Please select a file first.", "error"); return; }
 
-    const btn = document.getElementById("convertBtn");
-    const progress = document.getElementById("progressWrap");
+    if (quotaState.conversions_remaining <= 0) {
+      openUpgradeModal();
+      return;
+    }
 
-    btn.disabled = true;
+    const btn      = document.getElementById("convertBtn");
+    const progress = document.getElementById("progressWrap");
+    btn.disabled    = true;
     btn.textContent = "Converting...";
     progress.classList.add("visible");
 
-    const form = new FormData();
-    form.append("file", selectedFile);
-    form.append("mode", activeMode);
-
-    // Get CSRF token from meta tag
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    const unrenderedTemplateToken = csrfToken && csrfToken.includes("csrf_token");
-    if (!csrfToken || unrenderedTemplateToken) {
-      showToast("Backend not detected. Open the app from Flask URL (http://127.0.0.1:5000), not as a local file.", "error");
-      btn.disabled = false;
-      btn.textContent = "Convert Now";
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+    if (!csrfToken || csrfToken.includes("csrf_token")) {
+      showToast("Backend not detected. Open from http://127.0.0.1:5000", "error");
+      btn.disabled = false; btn.textContent = "⚡  Convert Now";
       progress.classList.remove("visible");
       return;
     }
 
-    // Send CSRF token in both places for compatibility with proxies/middleware
+    const form = new FormData();
+    form.append("file", selectedFile);
+    form.append("mode", activeMode);
     form.append("csrf_token", csrfToken);
 
     try {
       const res = await fetch("/convert", {
-        method: "POST",
-        body: form,
-        credentials: "same-origin",
-        headers: {
-          "X-CSRFToken": csrfToken,
-          "X-CSRF-Token": csrfToken
-        }
+        method: "POST", body: form, credentials: "same-origin",
+        headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
       });
+
+      if (res.status === 402) {
+        await refreshQuota();
+        openUpgradeModal();
+        return;
+      }
 
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Conversion failed.");
       }
 
-      const blob = await res.blob();
-      const cd   = res.headers.get("Content-Disposition") || "";
+      const blob  = await res.blob();
+      const cd    = res.headers.get("Content-Disposition") || "";
       const match = cd.match(/filename="?([^"]+)"?/);
       const fname = match ? match[1] : "converted_file";
 
-      // Trigger download
       const url = URL.createObjectURL(blob);
       const a   = document.createElement("a");
       a.href = url; a.download = fname;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      showToast("✅  Done! File downloaded.", "success");
+      showToast("Done! File downloaded.", "success");
+      await refreshQuota();
 
     } catch (err) {
       const msg = (err && err.message) ? err.message : "Request failed.";
-      const networkFailure = msg.includes("Failed to fetch") || msg.includes("NetworkError");
-      if (networkFailure) {
-        showToast("Cannot reach backend. Start Flask and open http://127.0.0.1:5000", "error");
+      if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+        showToast("Cannot reach backend. Start Flask first.", "error");
       } else {
         showToast("Error: " + msg, "error");
       }
     } finally {
-      btn.disabled = false;
+      btn.disabled    = false;
       btn.textContent = "⚡  Convert Now";
       progress.classList.remove("visible");
     }
   }
 
+  // ── Upgrade modal ─────────────────────────────────────────────────────────
+  function openUpgradeModal()  { document.getElementById("upgradeModal").classList.add("open"); }
+  function closeUpgradeModal() { document.getElementById("upgradeModal").classList.remove("open"); }
+
+  document.getElementById("upgradeModal").addEventListener("click", e => {
+    if (e.target === e.currentTarget) closeUpgradeModal();
+  });
+
+  async function startCheckout() {
+    const btn       = document.getElementById("upgradeBtn");
+    btn.disabled    = true;
+    btn.textContent = "Redirecting to Stripe...";
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+    const form      = new FormData();
+    form.append("csrf_token", csrfToken);
+
+    try {
+      const res  = await fetch("/create-checkout-session", {
+        method: "POST", body: form, credentials: "same-origin",
+        headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.checkout_url) throw new Error(data.error || "Checkout failed.");
+      window.location.href = data.checkout_url;
+
+    } catch (err) {
+      showToast("Checkout error: " + (err.message || "Please try again."), "error");
+      btn.disabled    = false;
+      btn.textContent = "Pay & Unlock Conversions";
+    }
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
   function showToast(msg, type = "") {
     const t = document.getElementById("toast");
     t.textContent = msg;
-    t.className = "toast " + type;
+    t.className   = "toast " + type;
     t.classList.add("show");
     setTimeout(() => t.classList.remove("show"), 3500);
   }

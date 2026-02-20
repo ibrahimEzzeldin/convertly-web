@@ -9,4 +9,5 @@ openpyxl==3.1.5
 docx2pdf==0.1.8
 mammoth==1.11.0
 reportlab==4.4.10
+stripe==14.3.0
 gunicorn==25.1.0

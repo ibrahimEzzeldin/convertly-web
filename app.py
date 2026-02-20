@@ -1,9 +1,12 @@
-from flask import Flask, render_template, request, send_file, jsonify, after_this_request
+from flask import (
+    Flask, render_template, request, send_file,
+    jsonify, after_this_request, session, redirect,
+)
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
-import os, uuid, time, logging, threading
+import os, uuid, time, logging, threading, stripe
 from pathlib import Path
 
 load_dotenv(override=True)
@@ -22,12 +25,12 @@ logger = logging.getLogger(__name__)
 
 # ── App setup ──────────────────────────────────────────────────────────────
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"]        = os.getenv("UPLOAD_FOLDER", "uploads")
-app.config["MAX_CONTENT_LENGTH"]   = int(os.getenv("MAX_CONTENT_LENGTH", 32 * 1024 * 1024))
-app.config["MAX_FILE_SIZE"]        = int(os.getenv("MAX_FILE_SIZE", 32 * 1024 * 1024))
-app.config["FILE_EXPIRY_HOURS"]    = int(os.getenv("FILE_EXPIRY_HOURS", 24))
-app.config["SECRET_KEY"]           = os.getenv("SECRET_KEY", "dev-key-change-in-production")
-app.config["CONVERSION_TIMEOUT"]   = int(os.getenv("CONVERSION_TIMEOUT", 120))
+app.config["UPLOAD_FOLDER"]      = os.getenv("UPLOAD_FOLDER", "uploads")
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", 32 * 1024 * 1024))
+app.config["MAX_FILE_SIZE"]      = int(os.getenv("MAX_FILE_SIZE",      32 * 1024 * 1024))
+app.config["FILE_EXPIRY_HOURS"]  = int(os.getenv("FILE_EXPIRY_HOURS",  24))
+app.config["SECRET_KEY"]         = os.getenv("SECRET_KEY", "dev-key-change-in-production")
+app.config["CONVERSION_TIMEOUT"] = int(os.getenv("CONVERSION_TIMEOUT", 120))
 
 session_cookie_secure = os.getenv("SESSION_COOKIE_SECURE")
 if session_cookie_secure is None:
@@ -36,6 +39,13 @@ else:
     app.config["SESSION_COOKIE_SECURE"] = session_cookie_secure.lower() == "true"
 app.config["SESSION_COOKIE_HTTPONLY"] = os.getenv("SESSION_COOKIE_HTTPONLY", "True").lower() == "true"
 app.config["SESSION_COOKIE_SAMESITE"] = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+
+# ── Stripe ─────────────────────────────────────────────────────────────────
+stripe.api_key             = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY     = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_PRICE_ID            = os.getenv("STRIPE_PRICE_ID", "")
+FREE_CONVERSIONS_LIMIT     = int(os.getenv("FREE_CONVERSIONS_LIMIT", 3))
+PAID_CONVERSIONS_AMOUNT    = int(os.getenv("PAID_CONVERSIONS_AMOUNT", 20))
 
 # ── CSRF ───────────────────────────────────────────────────────────────────
 csrf = CSRFProtect(app)
@@ -60,8 +70,8 @@ limiter = Limiter(
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 # ── Periodic cleanup ───────────────────────────────────────────────────────
-_last_cleanup   = 0.0
-_CLEANUP_INTERVAL = 300  # seconds
+_last_cleanup     = 0.0
+_CLEANUP_INTERVAL = 300
 
 def cleanup_old_files(max_age_hours=None):
     if max_age_hours is None:
@@ -90,7 +100,6 @@ def cleanup_before_request():
 # ── Conversion helpers ─────────────────────────────────────────────────────
 
 def _run_with_timeout(fn, args, timeout_seconds):
-    """Run fn(*args) in a thread; raise TimeoutError if it exceeds timeout."""
     result    = [None]
     exception = [None]
 
@@ -138,11 +147,6 @@ def pdf_to_excel(src, out):
 
 
 def word_to_pdf(src, out):
-    """
-    Convert DOCX → PDF.
-    Primary:  docx2pdf  (requires Microsoft Word on Windows / LibreOffice on Linux)
-    Fallback: mammoth (DOCX→HTML) + reportlab (HTML text → PDF) — works everywhere.
-    """
     try:
         from docx2pdf import convert
         convert(src, out)
@@ -153,31 +157,28 @@ def word_to_pdf(src, out):
 
 
 def _word_to_pdf_fallback(src, out):
-    """Pure-Python DOCX → PDF via mammoth (HTML extraction) + reportlab."""
     import mammoth
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.enums import TA_LEFT
-    import html, re
+    import html as html_lib, re
 
     with open(src, "rb") as f:
         result = mammoth.convert_to_html(f)
     raw_html = result.value
-
-    # Strip HTML tags; split into paragraphs on block elements
     raw_html = re.sub(r"<br\s*/?>", "\n", raw_html, flags=re.IGNORECASE)
     raw_html = re.sub(r"</?(p|div|li|h[1-6])[^>]*>", "\n", raw_html, flags=re.IGNORECASE)
     raw_html = re.sub(r"<[^>]+>", "", raw_html)
-    text     = html.unescape(raw_html)
+    text     = html_lib.unescape(raw_html)
 
-    doc      = SimpleDocTemplate(out, pagesize=A4,
-                                  topMargin=0.75 * inch, bottomMargin=0.75 * inch,
-                                  leftMargin=inch, rightMargin=inch)
-    styles   = getSampleStyleSheet()
-    body     = ParagraphStyle("body", parent=styles["Normal"], fontSize=10,
-                               leading=14, spaceAfter=4, alignment=TA_LEFT)
+    doc    = SimpleDocTemplate(out, pagesize=A4,
+                                topMargin=0.75*inch, bottomMargin=0.75*inch,
+                                leftMargin=inch, rightMargin=inch)
+    styles = getSampleStyleSheet()
+    body   = ParagraphStyle("body", parent=styles["Normal"], fontSize=10,
+                             leading=14, spaceAfter=4, alignment=TA_LEFT)
     elements = []
     for line in text.split("\n"):
         line = line.strip()
@@ -204,20 +205,18 @@ def excel_to_pdf(src, out):
         data.append([str(cell) if cell is not None else "" for cell in row])
 
     if not data:
-        # Empty sheet — write a blank PDF
         doc = SimpleDocTemplate(out, pagesize=A4)
         doc.build([])
         return
 
-    col_count  = len(data[0])
-    # Use landscape for wide sheets
-    page_size  = landscape(A4) if col_count > 6 else A4
+    col_count = len(data[0])
+    page_size = landscape(A4) if col_count > 6 else A4
     page_width = page_size[0] - 1.0 * inch
     col_width  = min(1.5 * inch, page_width / col_count) if col_count else 1.5 * inch
 
     doc   = SimpleDocTemplate(out, pagesize=page_size,
-                               topMargin=0.5 * inch, bottomMargin=0.5 * inch,
-                               leftMargin=0.5 * inch, rightMargin=0.5 * inch)
+                               topMargin=0.5*inch, bottomMargin=0.5*inch,
+                               leftMargin=0.5*inch, rightMargin=0.5*inch)
     table = Table(data, colWidths=[col_width] * col_count, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND",    (0, 0), (-1, 0),  colors.HexColor("#4f6ef7")),
@@ -253,37 +252,61 @@ ALLOWED_MIME_TYPES = {
 def validate_file(file, allowed_extensions, max_size):
     if not file or file.filename == "":
         return False, "No file provided."
-
     file_ext = os.path.splitext(file.filename)[1].lower()
-
     if file_ext not in allowed_extensions:
         return False, f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
-
     if hasattr(file, "content_type"):
         allowed_mimes = ALLOWED_MIME_TYPES.get(file_ext, [])
         if allowed_mimes and file.content_type not in allowed_mimes:
             return False, f"Invalid file format for {file_ext} file."
-
     file.seek(0, 2)
     file_size = file.tell()
     file.seek(0)
-
     if file_size > max_size:
-        return False, f"File too large. Maximum size is {max_size / (1024*1024):.0f} MB."
+        return False, f"File too large. Maximum size is {max_size // (1024*1024)} MB."
     if file_size == 0:
         return False, "File is empty."
-
     return True, None
 
 # ── Routes ─────────────────────────────────────────────────────────────────
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
+@app.route("/status")
+def status():
+    conversions_used   = session.get("conversions_used", 0)
+    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    paid               = session.get("paid", False)
+    return jsonify({
+        "conversions_used":       conversions_used,
+        "conversions_budget":     conversions_budget,
+        "conversions_remaining":  max(conversions_budget - conversions_used, 0),
+        "paid":                   paid,
+        "stripe_publishable_key": STRIPE_PUBLISHABLE_KEY,
+        "free_limit":             FREE_CONVERSIONS_LIMIT,
+        "paid_amount":            PAID_CONVERSIONS_AMOUNT,
+    })
+
+
 @app.route("/convert", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def convert():
+    # ── Quota check ────────────────────────────────────────────────────────
+    conversions_used   = session.get("conversions_used", 0)
+    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+
+    if conversions_used >= conversions_budget:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   conversions_used,
+            "conversions_budget": conversions_budget,
+        }), 402
+
+    # ── Validate mode & file ───────────────────────────────────────────────
     mode = request.form.get("mode")
     file = request.files.get("file")
 
@@ -295,8 +318,7 @@ def convert():
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    uid = str(uuid.uuid4())
-    # Sanitise filename — strip path components
+    uid       = str(uuid.uuid4())
     safe_name = os.path.basename(file.filename)
     src = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_{safe_name}")
     out = os.path.splitext(src)[0] + MODES[mode]["ext"]
@@ -304,11 +326,7 @@ def convert():
     logger.info("Converting [%s] %s", mode, safe_name)
 
     try:
-        _run_with_timeout(
-            MODES[mode]["fn"],
-            (src, out),
-            app.config["CONVERSION_TIMEOUT"],
-        )
+        _run_with_timeout(MODES[mode]["fn"], (src, out), app.config["CONVERSION_TIMEOUT"])
     except TimeoutError as exc:
         logger.error("Conversion timeout for %s: %s", safe_name, exc)
         return jsonify({"error": str(exc)}), 504
@@ -322,6 +340,11 @@ def convert():
     if not os.path.exists(out):
         logger.error("Output file missing after conversion: %s", out)
         return jsonify({"error": "Conversion produced no output. Please try again."}), 500
+
+    # ── Increment quota counter ────────────────────────────────────────────
+    session["conversions_used"]   = conversions_used + 1
+    session["conversions_budget"] = conversions_budget
+    session.modified = True
 
     out_name = os.path.splitext(safe_name)[0] + "_converted" + MODES[mode]["ext"]
     logger.info("Conversion complete: %s → %s", safe_name, out_name)
@@ -337,6 +360,68 @@ def convert():
 
     return send_file(out, as_attachment=True, download_name=out_name)
 
+
+@app.route("/create-checkout-session", methods=["POST"])
+@limiter.limit("5 per hour")
+def create_checkout_session():
+    if not stripe.api_key or not STRIPE_PRICE_ID:
+        logger.error("Stripe is not configured — missing STRIPE_SECRET_KEY or STRIPE_PRICE_ID")
+        return jsonify({"error": "Payment service is not configured yet."}), 503
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
+            mode="payment",
+            success_url=request.host_url.rstrip("/") + "/payment-success?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=request.host_url.rstrip("/") + "/?cancelled=1",
+        )
+    except stripe.StripeError as e:
+        logger.error("Stripe checkout creation failed: %s", e)
+        return jsonify({"error": "Payment service unavailable. Please try again."}), 503
+
+    # Store the Stripe session ID as a nonce — verified on return
+    session["pending_stripe_session_id"] = checkout_session.id
+    session.modified = True
+
+    return jsonify({"checkout_url": checkout_session.url})
+
+
+@app.route("/payment-success")
+def payment_success():
+    stripe_session_id = request.args.get("session_id", "")
+
+    if not stripe_session_id:
+        return redirect("/?error=missing_session")
+
+    stored_id = session.get("pending_stripe_session_id")
+    if not stored_id or stored_id != stripe_session_id:
+        logger.warning("payment-success session_id mismatch: stored=%s got=%s", stored_id, stripe_session_id)
+        return redirect("/?error=invalid_session")
+
+    try:
+        stripe_session = stripe.checkout.Session.retrieve(stripe_session_id)
+    except stripe.StripeError as e:
+        logger.error("Stripe session retrieve failed: %s", e)
+        return redirect("/?error=stripe_error")
+
+    if stripe_session.payment_status != "paid":
+        logger.warning("payment-success but payment_status=%s", stripe_session.payment_status)
+        return redirect("/?error=payment_incomplete")
+
+    # Payment confirmed — extend the session budget
+    current_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    session["conversions_budget"] = current_budget + PAID_CONVERSIONS_AMOUNT
+    session["paid"]               = True
+    session.pop("pending_stripe_session_id", None)
+    session.modified = True
+
+    logger.info("Payment confirmed for Stripe session %s; budget now %d",
+                stripe_session_id, session["conversions_budget"])
+    return redirect("/?paid=1")
+
+
+# ── Error handlers ─────────────────────────────────────────────────────────
 
 @app.errorhandler(429)
 def ratelimit_error(e):
