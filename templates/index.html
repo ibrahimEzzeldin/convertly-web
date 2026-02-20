@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Convertly — File Converter</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -456,6 +457,10 @@
     const form = new FormData();
     form.append("file", selectedFile);
     form.append("mode", activeMode);
+    
+    // Add CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    form.append("csrf_token", csrfToken);
 
     try {
       const res = await fetch("/convert", { method: "POST", body: form });
