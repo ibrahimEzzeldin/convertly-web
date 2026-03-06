@@ -6,7 +6,6 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Convertly — File Converter</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
-  <script src="https://www.paypal.com/sdk/js?client-id=BAAJIFAfKLquFySOoDBExIAhDiIFCKMNyzsZ_pYKeQuEC60cUQW-U0YLOCDf3p1ROBwHLDSSwmbtrLVdjU&components=hosted-buttons&disable-funding=venmo&currency=USD"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -459,7 +458,12 @@
       <li>Secure checkout via PayPal</li>
       <li>Instant unlock after payment</li>
     </ul>
-    <div id="paypal-container-4AR3KAZS7BE52"></div>
+    <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top" style="text-align:center;margin-bottom:8px">
+      <input type="hidden" name="cmd" value="_s-xclick" />
+      <input type="hidden" name="hosted_button_id" value="WAPWVZE2UKXQJ" />
+      <input type="hidden" name="currency_code" value="USD" />
+      <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_buynowCC_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Buy Now" style="cursor:pointer" />
+    </form>
     <button class="modal-cancel" id="modalCancel">Maybe later</button>
   </div>
 </div>
@@ -486,10 +490,6 @@
   document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("convertBtn").addEventListener("click", doConvert);
     document.getElementById("modalCancel").addEventListener("click", closeUpgradeModal);
-
-    paypal.HostedButtons({
-      hostedButtonId: "4AR3KAZS7BE52",
-    }).render("#paypal-container-4AR3KAZS7BE52");
 
     await refreshQuota();
 
