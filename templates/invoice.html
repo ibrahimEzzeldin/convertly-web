@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Convertly — Invoice</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #f7f8fc;
+      color: #1a1d2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .invoice-card {
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid #e8eaf0;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      max-width: 480px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    /* Header */
+    .inv-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a1d2e;
+    }
+    .logo-badge {
+      width: 36px; height: 36px;
+      background: #4f6ef7;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 18px;
+    }
+    .inv-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #8b90a7;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Success badge */
+    .success-badge {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .checkmark {
+      width: 56px; height: 56px;
+      background: #ecfdf5;
+      border: 2px solid #a7f3d0;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      margin: 0 auto 12px;
+    }
+    .success-badge h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1a1d2e;
+      margin-bottom: 4px;
+    }
+    .success-badge p {
+      font-size: 13px;
+      color: #8b90a7;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: #e8eaf0;
+      margin: 24px 0;
+    }
+
+    /* Line items */
+    .inv-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+    .inv-row .label { color: #8b90a7; }
+    .inv-row .value { font-weight: 600; color: #1a1d2e; text-align: right; max-width: 60%; word-break: break-all; }
+
+    .inv-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f0f2ff;
+      border: 1px solid #c5caff;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-top: 8px;
+    }
+    .inv-total .total-label { font-size: 14px; font-weight: 700; color: #1a1d2e; }
+    .inv-total .total-price { font-size: 22px; font-weight: 800; color: #4f6ef7; }
+
+    /* Actions */
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 28px;
+    }
+    .btn-print {
+      flex: 1;
+      padding: 13px;
+      background: #4f6ef7;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+    .btn-print:hover { background: #3a58e0; }
+    .btn-home {
+      flex: 1;
+      padding: 13px;
+      background: #f0f2ff;
+      color: #4f6ef7;
+      font-size: 14px;
+      font-weight: 700;
+      border: 1px solid #c5caff;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: background 0.18s;
+    }
+    .btn-home:hover { background: #e0e4ff; }
+
+    /* Print styles */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .invoice-card { box-shadow: none; border: none; max-width: 100%; }
+      .actions { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="invoice-card" id="invoiceCard">
+
+  <div class="inv-header">
+    <div class="logo">
+      <div class="logo-badge">C</div>
+      Convertly
+    </div>
+    <div class="inv-label">Invoice</div>
+  </div>
+
+  <div class="success-badge">
+    <div class="checkmark">✓</div>
+    <h2>Payment Confirmed</h2>
+    <p>Thank you for your purchase!</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="inv-row">
+    <span class="label">Item</span>
+    <span class="value">{{ inv.item_name }}</span>
+  </div>
+
+  <div class="inv-row">
+    <span class="label">Order ID</span>
+    <span class="value">{{ inv.order_id }}</span>
+  </div>
+
+  <div class="inv-row">
+    <span class="label">Date</span>
+    <span class="value" id="invDate">
+      {% if inv.date %}
+        {{ inv.date[:10] }}
+      {% else %}
+        {{ now }}
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="inv-row">
+    <span class="label">Payment Method</span>
+    <span class="value">PayPal</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="inv-total">
+    <span class="total-label">Total Paid</span>
+    <span class="total-price">{{ inv.currency }} {{ inv.price }}</span>
+  </div>
+
+  <div class="actions">
+    <button class="btn-print" onclick="window.print()">Download / Print</button>
+    <a class="btn-home" href="/">Back to App</a>
+  </div>
+
+</div>
+
+</body>
+</html>

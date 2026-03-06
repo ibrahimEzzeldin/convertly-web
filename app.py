@@ -508,11 +508,31 @@ def payment_success():
     session["conversions_budget"] = current_budget + PAID_CONVERSIONS_AMOUNT
     session["paid"]               = True
     session.pop("pending_paypal_order_id", None)
+
+    # Store invoice details for the invoice page
+    captured_unit = capture.get("purchase_units", [{}])[0]
+    captured_payment = captured_unit.get("payments", {}).get("captures", [{}])[0]
+    session["last_invoice"] = {
+        "order_id":   capture.get("id", order_id),
+        "item_name":  f"{PAID_CONVERSIONS_AMOUNT} Additional File Conversions",
+        "price":      captured_payment.get("amount", {}).get("value", PAYPAL_PRICE_USD),
+        "currency":   captured_payment.get("amount", {}).get("currency_code", "USD"),
+        "date":       captured_payment.get("create_time", ""),
+    }
     session.modified = True
 
     logger.info("PayPal payment confirmed for order %s; budget now %d",
                 order_id, session["conversions_budget"])
-    return redirect("/?paid=1")
+    return redirect("/invoice")
+
+
+@app.route("/invoice")
+def invoice():
+    inv = session.get("last_invoice")
+    if not inv:
+        return redirect("/")
+    from datetime import date
+    return render_template("invoice.html", inv=inv, now=date.today().isoformat())
 
 
 # ── Error handlers ─────────────────────────────────────────────────────────
