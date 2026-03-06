@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Convertly — Invoice</title>
+  <script nonce="{{ csp_nonce }}">
+    document.addEventListener("DOMContentLoaded", function() {
+      document.getElementById("printBtn").addEventListener("click", function() {
+        window.print();
+      });
+    });
+  </script>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -215,7 +222,7 @@
   </div>
 
   <div class="actions">
-    <button class="btn-print" onclick="window.print()">Download / Print</button>
+    <button class="btn-print" id="printBtn">Download / Print</button>
     <a class="btn-home" href="/">Back to App</a>
   </div>
 
