@@ -1,12 +1,12 @@
 from flask import (
     Flask, render_template, request, send_file,
-    jsonify, after_this_request, session, redirect,
+    jsonify, after_this_request, session, redirect, g,
 )
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
-import os, uuid, time, logging, threading
+import os, uuid, time, logging, threading, secrets
 import requests as _requests
 from pathlib import Path
 
@@ -33,6 +33,14 @@ app.config["FILE_EXPIRY_HOURS"]  = int(os.getenv("FILE_EXPIRY_HOURS",  24))
 app.config["SECRET_KEY"]         = os.getenv("SECRET_KEY", "dev-key-change-in-production")
 app.config["CONVERSION_TIMEOUT"] = int(os.getenv("CONVERSION_TIMEOUT", 120))
 
+# ── Startup security check ─────────────────────────────────────────────────
+_is_production = os.getenv("FLASK_ENV", "production").lower() == "production"
+if _is_production and app.config["SECRET_KEY"] == "dev-key-change-in-production":
+    raise RuntimeError(
+        "SECRET_KEY must be set to a strong random value in production. "
+        "Set the SECRET_KEY environment variable."
+    )
+
 session_cookie_secure = os.getenv("SESSION_COOKIE_SECURE")
 if session_cookie_secure is None:
     app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV", "production").lower() == "production"
@@ -53,6 +61,15 @@ PAYPAL_API_BASE       = (
 )
 FREE_CONVERSIONS_LIMIT  = int(os.getenv("FREE_CONVERSIONS_LIMIT", 3))
 PAID_CONVERSIONS_AMOUNT = int(os.getenv("PAID_CONVERSIONS_AMOUNT", 20))
+
+# ── Magic byte signatures ───────────────────────────────────────────────────
+MAGIC_BYTES = {
+    ".pdf":  [b"%PDF"],
+    ".docx": [b"PK\x03\x04"],
+    ".doc":  [b"\xd0\xcf\x11\xe0"],
+    ".xlsx": [b"PK\x03\x04"],
+    ".xls":  [b"\xd0\xcf\x11\xe0"],
+}
 
 
 def _paypal_access_token():
@@ -75,6 +92,34 @@ def handle_csrf_error(e):
     if app.debug or os.getenv("CSRF_ERROR_DETAILS", "False").lower() == "true":
         payload["details"] = e.description
     return jsonify(payload), 400
+
+# ── CSP nonce + security headers ───────────────────────────────────────────
+@app.before_request
+def set_csp_nonce():
+    g.csp_nonce = secrets.token_hex(16)
+
+@app.context_processor
+def inject_csp_nonce():
+    return {"csp_nonce": getattr(g, "csp_nonce", "")}
+
+@app.after_request
+def set_security_headers(response):
+    nonce = getattr(g, "csp_nonce", "")
+    response.headers["X-Frame-Options"]        = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"]        = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"]     = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        f"default-src 'self'; "
+        f"script-src 'self' 'nonce-{nonce}'; "
+        f"style-src 'self' 'unsafe-inline'; "
+        f"img-src 'self' data:; "
+        f"connect-src 'self'; "
+        f"frame-src https://www.paypal.com; "
+        f"form-action 'self' https://www.paypal.com; "
+        f"base-uri 'self';"
+    )
+    return response
 
 # ── Rate limiting ──────────────────────────────────────────────────────────
 limiter = Limiter(
@@ -329,6 +374,15 @@ def convert():
     is_valid, error_msg = validate_file(file, allowed_exts, app.config["MAX_FILE_SIZE"])
     if not is_valid:
         return jsonify({"error": error_msg}), 400
+
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    expected_magic = MAGIC_BYTES.get(file_ext, [])
+    if expected_magic:
+        header = file.read(8)
+        file.seek(0)
+        if not any(header.startswith(m) for m in expected_magic):
+            logger.warning("Magic byte mismatch for file: %s", file.filename)
+            return jsonify({"error": "File content does not match its extension."}), 400
 
     uid       = str(uuid.uuid4())
     safe_name = os.path.basename(file.filename)
