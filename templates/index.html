@@ -420,7 +420,7 @@
     </div>
 
     <!-- Convert -->
-    <button class="convert-btn" id="convertBtn" onclick="doConvert()">
+    <button class="convert-btn" id="convertBtn">
       ⚡  Convert Now
     </button>
 
@@ -458,10 +458,10 @@
       <li>Secure checkout via PayPal</li>
       <li>Instant unlock after payment</li>
     </ul>
-    <button class="upgrade-btn" id="upgradeBtn" onclick="startCheckout()">
+    <button class="upgrade-btn" id="upgradeBtn">
       Pay &amp; Unlock Conversions
     </button>
-    <button class="modal-cancel" onclick="closeUpgradeModal()">Maybe later</button>
+    <button class="modal-cancel" id="modalCancel">Maybe later</button>
   </div>
 </div>
 
@@ -485,6 +485,10 @@
 
   // ── On load ──────────────────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", async () => {
+    document.getElementById("convertBtn").addEventListener("click", doConvert);
+    document.getElementById("upgradeBtn").addEventListener("click", startCheckout);
+    document.getElementById("modalCancel").addEventListener("click", closeUpgradeModal);
+
     await refreshQuota();
 
     const params = new URLSearchParams(window.location.search);
