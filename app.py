@@ -111,11 +111,12 @@ def set_security_headers(response):
     response.headers["Permissions-Policy"]     = "camera=(), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
         f"default-src 'self'; "
-        f"script-src 'self' 'nonce-{nonce}'; "
+        f"script-src 'self' 'nonce-{nonce}' https://www.paypal.com https://www.paypalobjects.com; "
         f"style-src 'self' 'unsafe-inline'; "
-        f"img-src 'self' data:; "
-        f"connect-src 'self'; "
-        f"frame-src https://www.paypal.com; "
+        f"img-src 'self' data: https://www.paypalobjects.com https://www.paypal.com; "
+        f"connect-src 'self' https://www.paypal.com https://www.sandbox.paypal.com "
+        f"https://api-m.paypal.com https://api-m.sandbox.paypal.com; "
+        f"frame-src https://www.paypal.com https://www.sandbox.paypal.com; "
         f"form-action 'self' https://www.paypal.com; "
         f"base-uri 'self';"
     )
@@ -481,43 +482,37 @@ def payment_success():
     if not order_id:
         return redirect("/?error=missing_token")
 
-    stored_id = session.get("pending_paypal_order_id")
-    if not stored_id or stored_id != order_id:
-        logger.warning("payment-success order_id mismatch: stored=%s got=%s", stored_id, order_id)
-        return redirect("/?error=invalid_session")
-
     try:
         token = _paypal_access_token()
-        resp  = _requests.post(
-            f"{PAYPAL_API_BASE}/v2/checkout/orders/{order_id}/capture",
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+        resp  = _requests.get(
+            f"{PAYPAL_API_BASE}/v2/checkout/orders/{order_id}",
+            headers={"Authorization": f"Bearer {token}"},
             timeout=15,
         )
         resp.raise_for_status()
-        capture = resp.json()
+        order_data = resp.json()
     except Exception as exc:
-        logger.error("PayPal capture failed: %s", exc)
+        logger.error("PayPal order verification failed: %s", exc)
         return redirect("/?error=payment_error")
 
-    if capture.get("status") != "COMPLETED":
-        logger.warning("PayPal capture status: %s", capture.get("status"))
+    if order_data.get("status") != "COMPLETED":
+        logger.warning("PayPal order status: %s", order_data.get("status"))
         return redirect("/?error=payment_incomplete")
 
     # Payment confirmed — extend the session budget
     current_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
     session["conversions_budget"] = current_budget + PAID_CONVERSIONS_AMOUNT
     session["paid"]               = True
-    session.pop("pending_paypal_order_id", None)
 
-    # Store invoice details for the invoice page
-    captured_unit = capture.get("purchase_units", [{}])[0]
-    captured_payment = captured_unit.get("payments", {}).get("captures", [{}])[0]
+    # Store invoice details
+    unit    = order_data.get("purchase_units", [{}])[0]
+    capture = unit.get("payments", {}).get("captures", [{}])[0]
     session["last_invoice"] = {
-        "order_id":   capture.get("id", order_id),
-        "item_name":  f"{PAID_CONVERSIONS_AMOUNT} Additional File Conversions",
-        "price":      captured_payment.get("amount", {}).get("value", PAYPAL_PRICE_USD),
-        "currency":   captured_payment.get("amount", {}).get("currency_code", "USD"),
-        "date":       captured_payment.get("create_time", ""),
+        "order_id":  order_data.get("id", order_id),
+        "item_name": f"{PAID_CONVERSIONS_AMOUNT} Additional File Conversions",
+        "price":     capture.get("amount", {}).get("value", PAYPAL_PRICE_USD),
+        "currency":  capture.get("amount", {}).get("currency_code", "USD"),
+        "date":      capture.get("create_time", ""),
     }
     session.modified = True
 
