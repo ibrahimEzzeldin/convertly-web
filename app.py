@@ -6,7 +6,8 @@ from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
-import os, uuid, time, logging, threading, stripe
+import os, uuid, time, logging, threading
+import requests as _requests
 from pathlib import Path
 
 load_dotenv(override=True)
@@ -40,12 +41,29 @@ else:
 app.config["SESSION_COOKIE_HTTPONLY"] = os.getenv("SESSION_COOKIE_HTTPONLY", "True").lower() == "true"
 app.config["SESSION_COOKIE_SAMESITE"] = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 
-# ── Stripe ─────────────────────────────────────────────────────────────────
-stripe.api_key             = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_PUBLISHABLE_KEY     = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
-STRIPE_PRICE_ID            = os.getenv("STRIPE_PRICE_ID", "")
-FREE_CONVERSIONS_LIMIT     = int(os.getenv("FREE_CONVERSIONS_LIMIT", 3))
-PAID_CONVERSIONS_AMOUNT    = int(os.getenv("PAID_CONVERSIONS_AMOUNT", 20))
+# ── PayPal ─────────────────────────────────────────────────────────────────
+PAYPAL_CLIENT_ID      = os.getenv("PAYPAL_CLIENT_ID", "")
+PAYPAL_CLIENT_SECRET  = os.getenv("PAYPAL_CLIENT_SECRET", "")
+PAYPAL_MODE           = os.getenv("PAYPAL_MODE", "sandbox")   # "sandbox" or "live"
+PAYPAL_PRICE_USD      = os.getenv("PAYPAL_PRICE_USD", "2.00")
+PAYPAL_API_BASE       = (
+    "https://api-m.sandbox.paypal.com"
+    if PAYPAL_MODE == "sandbox"
+    else "https://api-m.paypal.com"
+)
+FREE_CONVERSIONS_LIMIT  = int(os.getenv("FREE_CONVERSIONS_LIMIT", 3))
+PAID_CONVERSIONS_AMOUNT = int(os.getenv("PAID_CONVERSIONS_AMOUNT", 20))
+
+
+def _paypal_access_token():
+    resp = _requests.post(
+        f"{PAYPAL_API_BASE}/v1/oauth2/token",
+        data={"grant_type": "client_credentials"},
+        auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET),
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
 
 # ── CSRF ───────────────────────────────────────────────────────────────────
 csrf = CSRFProtect(app)
@@ -147,13 +165,7 @@ def pdf_to_excel(src, out):
 
 
 def word_to_pdf(src, out):
-    try:
-        from docx2pdf import convert
-        convert(src, out)
-        logger.info("word_to_pdf: used docx2pdf")
-    except Exception as primary_err:
-        logger.warning("word_to_pdf docx2pdf failed (%s), falling back to mammoth", primary_err)
-        _word_to_pdf_fallback(src, out)
+    _word_to_pdf_fallback(src, out)
 
 
 def _word_to_pdf_fallback(src, out):
@@ -281,13 +293,13 @@ def status():
     conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
     paid               = session.get("paid", False)
     return jsonify({
-        "conversions_used":       conversions_used,
-        "conversions_budget":     conversions_budget,
-        "conversions_remaining":  max(conversions_budget - conversions_used, 0),
-        "paid":                   paid,
-        "stripe_publishable_key": STRIPE_PUBLISHABLE_KEY,
-        "free_limit":             FREE_CONVERSIONS_LIMIT,
-        "paid_amount":            PAID_CONVERSIONS_AMOUNT,
+        "conversions_used":      conversions_used,
+        "conversions_budget":    conversions_budget,
+        "conversions_remaining": max(conversions_budget - conversions_used, 0),
+        "paid":                  paid,
+        "free_limit":            FREE_CONVERSIONS_LIMIT,
+        "paid_amount":           PAID_CONVERSIONS_AMOUNT,
+        "price_usd":             PAYPAL_PRICE_USD,
     })
 
 
@@ -361,63 +373,91 @@ def convert():
     return send_file(out, as_attachment=True, download_name=out_name)
 
 
-@app.route("/create-checkout-session", methods=["POST"])
+@app.route("/create-paypal-order", methods=["POST"])
 @limiter.limit("5 per hour")
-def create_checkout_session():
-    if not stripe.api_key or not STRIPE_PRICE_ID:
-        logger.error("Stripe is not configured — missing STRIPE_SECRET_KEY or STRIPE_PRICE_ID")
+def create_paypal_order():
+    if not PAYPAL_CLIENT_ID or not PAYPAL_CLIENT_SECRET:
+        logger.error("PayPal is not configured — missing PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET")
         return jsonify({"error": "Payment service is not configured yet."}), 503
 
     try:
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
-            mode="payment",
-            success_url=request.host_url.rstrip("/") + "/payment-success?session_id={CHECKOUT_SESSION_ID}",
-            cancel_url=request.host_url.rstrip("/") + "/?cancelled=1",
+        token    = _paypal_access_token()
+        base_url = request.host_url.rstrip("/")
+        resp = _requests.post(
+            f"{PAYPAL_API_BASE}/v2/checkout/orders",
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+            json={
+                "intent": "CAPTURE",
+                "purchase_units": [{
+                    "amount": {"currency_code": "USD", "value": PAYPAL_PRICE_USD},
+                    "description": f"{PAID_CONVERSIONS_AMOUNT} additional file conversions on Convertly",
+                }],
+                "application_context": {
+                    "return_url":  f"{base_url}/payment-success",
+                    "cancel_url":  f"{base_url}/?cancelled=1",
+                    "brand_name":  "Convertly",
+                    "user_action": "PAY_NOW",
+                },
+            },
+            timeout=15,
         )
-    except stripe.StripeError as e:
-        logger.error("Stripe checkout creation failed: %s", e)
+        resp.raise_for_status()
+        order = resp.json()
+    except Exception as exc:
+        logger.error("PayPal order creation failed: %s", exc)
         return jsonify({"error": "Payment service unavailable. Please try again."}), 503
 
-    # Store the Stripe session ID as a nonce — verified on return
-    session["pending_stripe_session_id"] = checkout_session.id
-    session.modified = True
+    approval_url = next(
+        (lnk["href"] for lnk in order.get("links", []) if lnk["rel"] == "approve"),
+        None,
+    )
+    if not approval_url:
+        return jsonify({"error": "Could not get PayPal approval URL."}), 503
 
-    return jsonify({"checkout_url": checkout_session.url})
+    session["pending_paypal_order_id"] = order["id"]
+    session.modified = True
+    return jsonify({"approval_url": approval_url})
 
 
 @app.route("/payment-success")
 def payment_success():
-    stripe_session_id = request.args.get("session_id", "")
+    # PayPal passes ?token=ORDER_ID on return
+    order_id = request.args.get("token", "")
 
-    if not stripe_session_id:
-        return redirect("/?error=missing_session")
+    if not order_id:
+        return redirect("/?error=missing_token")
 
-    stored_id = session.get("pending_stripe_session_id")
-    if not stored_id or stored_id != stripe_session_id:
-        logger.warning("payment-success session_id mismatch: stored=%s got=%s", stored_id, stripe_session_id)
+    stored_id = session.get("pending_paypal_order_id")
+    if not stored_id or stored_id != order_id:
+        logger.warning("payment-success order_id mismatch: stored=%s got=%s", stored_id, order_id)
         return redirect("/?error=invalid_session")
 
     try:
-        stripe_session = stripe.checkout.Session.retrieve(stripe_session_id)
-    except stripe.StripeError as e:
-        logger.error("Stripe session retrieve failed: %s", e)
-        return redirect("/?error=stripe_error")
+        token = _paypal_access_token()
+        resp  = _requests.post(
+            f"{PAYPAL_API_BASE}/v2/checkout/orders/{order_id}/capture",
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        capture = resp.json()
+    except Exception as exc:
+        logger.error("PayPal capture failed: %s", exc)
+        return redirect("/?error=payment_error")
 
-    if stripe_session.payment_status != "paid":
-        logger.warning("payment-success but payment_status=%s", stripe_session.payment_status)
+    if capture.get("status") != "COMPLETED":
+        logger.warning("PayPal capture status: %s", capture.get("status"))
         return redirect("/?error=payment_incomplete")
 
     # Payment confirmed — extend the session budget
     current_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
     session["conversions_budget"] = current_budget + PAID_CONVERSIONS_AMOUNT
     session["paid"]               = True
-    session.pop("pending_stripe_session_id", None)
+    session.pop("pending_paypal_order_id", None)
     session.modified = True
 
-    logger.info("Payment confirmed for Stripe session %s; budget now %d",
-                stripe_session_id, session["conversions_budget"])
+    logger.info("PayPal payment confirmed for order %s; budget now %d",
+                order_id, session["conversions_budget"])
     return redirect("/?paid=1")
 
 

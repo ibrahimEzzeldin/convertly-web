@@ -454,7 +454,7 @@
     <ul class="modal-features">
       <li><span id="paidAmountFeature">20</span> additional conversions</li>
       <li>All 4 conversion formats included</li>
-      <li>Secure checkout via Stripe</li>
+      <li>Secure checkout via PayPal</li>
       <li>Instant unlock after payment</li>
     </ul>
     <button class="upgrade-btn" id="upgradeBtn" onclick="startCheckout()">
@@ -524,6 +524,8 @@
     const pa = data.paid_amount || 20;
     document.getElementById("paidAmount").textContent        = pa;
     document.getElementById("paidAmountFeature").textContent = pa;
+    const price = data.price_usd ? `$${parseFloat(data.price_usd).toFixed(2)}` : "$2.00";
+    document.getElementById("upgradePrice").textContent = price;
 
     // Banner
     const banner    = document.getElementById("quotaBanner");
@@ -678,21 +680,21 @@
   async function startCheckout() {
     const btn       = document.getElementById("upgradeBtn");
     btn.disabled    = true;
-    btn.textContent = "Redirecting to Stripe...";
+    btn.textContent = "Redirecting to PayPal...";
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
     const form      = new FormData();
     form.append("csrf_token", csrfToken);
 
     try {
-      const res  = await fetch("/create-checkout-session", {
+      const res  = await fetch("/create-paypal-order", {
         method: "POST", body: form, credentials: "same-origin",
         headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
       });
       const data = await res.json();
 
-      if (!res.ok || !data.checkout_url) throw new Error(data.error || "Checkout failed.");
-      window.location.href = data.checkout_url;
+      if (!res.ok || !data.approval_url) throw new Error(data.error || "Checkout failed.");
+      window.location.href = data.approval_url;
 
     } catch (err) {
       showToast("Checkout error: " + (err.message || "Please try again."), "error");
