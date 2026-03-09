@@ -2765,7 +2765,7 @@ _MYMEMORY_LANG_CODE = {
     "Indonesian": "id", "Vietnamese": "vi",
 }
 
-def _mymemory_translate(text, target_code, chunk_size=4500):
+def _mymemory_translate(text, target_code, chunk_size=480):
     """Translate text via MyMemory free API (no key required)."""
     if not text.strip():
         return text
