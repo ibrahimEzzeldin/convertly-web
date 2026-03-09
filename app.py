@@ -2755,13 +2755,39 @@ _TRANSLATE_FITZ_FONT = {
     "Korean":   "korea",
 }
 
+_MYMEMORY_LANG_CODE = {
+    "English": "en", "Arabic": "ar", "French": "fr", "Spanish": "es",
+    "German": "de", "Italian": "it", "Portuguese": "pt", "Russian": "ru",
+    "Chinese (Simplified)": "zh-CN", "Chinese (Traditional)": "zh-TW",
+    "Japanese": "ja", "Korean": "ko", "Turkish": "tr", "Dutch": "nl",
+    "Polish": "pl", "Hindi": "hi", "Ukrainian": "uk", "Swedish": "sv",
+    "Norwegian": "no", "Danish": "da", "Greek": "el", "Hebrew": "he",
+    "Indonesian": "id", "Vietnamese": "vi",
+}
+
+def _mymemory_translate(text, target_code, chunk_size=4500):
+    """Translate text via MyMemory free API (no key required)."""
+    if not text.strip():
+        return text
+    parts = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+    out = []
+    for part in parts:
+        resp = _requests.get(
+            "https://api.mymemory.translated.net/get",
+            params={"q": part, "langpair": f"auto|{target_code}"},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("responseStatus") == 200:
+            out.append(data["responseData"]["translatedText"])
+        else:
+            raise Exception(f"MyMemory error {data.get('responseStatus')}: {data.get('responseDetails', '')}")
+    return " ".join(out)
+
 @app.route("/translate-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def translate_pdf_route():
-    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-    if not api_key:
-        return jsonify({"error": "AI translation is not configured on this server. Set ANTHROPIC_API_KEY."}), 503
-
     conversions_used   = session.get("conversions_used", 0)
     conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
     if conversions_used >= conversions_budget:
@@ -2784,6 +2810,7 @@ def translate_pdf_route():
     target_lang = request.form.get("target_lang", "English").strip()
     if target_lang not in TRANSLATE_TARGET_LANGS:
         target_lang = "English"
+    target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
 
     uid       = str(uuid.uuid4())
     safe_name = os.path.basename(file.filename)
@@ -2813,7 +2840,6 @@ def translate_pdf_route():
         if not any(t for t in pages_text):
             return jsonify({"error": "No text found in PDF. Run OCR PDF first for scanned documents."}), 400
 
-        client    = _anthropic.Anthropic(api_key=api_key)
         fitz_font = _TRANSLATE_FITZ_FONT.get(target_lang, "helv")
 
         # Detect a system TTF for languages helv cannot render (Arabic, Hebrew, etc.)
@@ -2842,18 +2868,7 @@ def translate_pdf_route():
             if not page_text.strip():
                 translated_pages.append("")
                 continue
-            msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=4096,
-                messages=[{
-                    "role": "user",
-                    "content": (
-                        f"Translate the following text to {target_lang}. "
-                        f"Return ONLY the translated text, preserving paragraph structure:\n\n{page_text}"
-                    ),
-                }]
-            )
-            translated_pages.append(msg.content[0].text.strip())
+            translated_pages.append(_mymemory_translate(page_text, target_code))
 
         # ── Build output PDF with proper pagination ──────────────────────────
         import textwrap as _textwrap
