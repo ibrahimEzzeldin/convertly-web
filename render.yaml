@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: convertly-web
+    runtime: python
+    buildCommand: >
+      apt-get install -y
+      tesseract-ocr
+      tesseract-ocr-eng
+      tesseract-ocr-fra
+      tesseract-ocr-deu
+      tesseract-ocr-spa
+      tesseract-ocr-por
+      tesseract-ocr-ita
+      tesseract-ocr-ara
+      tesseract-ocr-chi-sim
+      && pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --timeout 180 --bind 0.0.0.0:$PORT
+    plan: free
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: UPLOAD_FOLDER
+        value: uploads
+      - key: MAX_CONTENT_LENGTH
+        value: "33554432"
+      - key: MAX_FILE_SIZE
+        value: "33554432"
+      - key: CONVERSION_TIMEOUT
+        value: "120"
+      - key: CONVERT_RATE_LIMIT
+        value: "10 per minute"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: VOUCHER_CODES
+        sync: false
+      - key: VOUCHER_GRANT
+        value: "50"
