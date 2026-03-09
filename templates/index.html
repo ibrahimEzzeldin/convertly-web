@@ -3877,6 +3877,7 @@
   async function doTranslate() {
     if (!selectedFile) { showToast("Please select a PDF file first.", "error"); return; }
 
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
     _trLang      = document.getElementById("translateTargetLang").value;
     const btn    = document.getElementById("convertBtn");
     const prog   = document.getElementById("progressWrap");
@@ -3921,6 +3922,7 @@
   }
 
   async function _trTranslate() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
     const btn = document.getElementById("trTranslateBtn");
     btn.disabled = true; btn.textContent = "Translating…";
     try {
@@ -4246,6 +4248,7 @@
 
   // ── PayPal checkout ───────────────────────────────────────────────────────
   async function startPaypalCheckout() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
     const btn = document.getElementById("paypalCheckoutBtn");
     btn.disabled = true;
     btn.textContent = "Redirecting…";
