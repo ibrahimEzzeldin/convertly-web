@@ -1655,10 +1655,10 @@
       <li>Instant unlock after payment</li>
     </ul>
     <div style="text-align:center;margin-bottom:8px">
-      <a href="https://www.paypal.com/ncp/payment/T5VKFKXKW8AYG" target="_top"
-         style="display:inline-block;background:#0070ba;color:#fff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;letter-spacing:0.2px;">
+      <button id="paypalCheckoutBtn" onclick="startPaypalCheckout()"
+         style="display:inline-block;background:#0070ba;color:#fff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;border:none;cursor:pointer;letter-spacing:0.2px;">
         💳 Pay with PayPal
-      </a>
+      </button>
     </div>
     <!-- Voucher code -->
     <div style="border-top:1px solid #e8eaf0;margin-top:16px;padding-top:14px;">
@@ -4186,6 +4186,31 @@
     } finally {
       btn.disabled = false; btn.textContent = BTN_LABELS["edit-pdf"];
       progress.classList.remove("visible");
+    }
+  }
+
+  // ── PayPal checkout ───────────────────────────────────────────────────────
+  async function startPaypalCheckout() {
+    const btn = document.getElementById("paypalCheckoutBtn");
+    btn.disabled = true;
+    btn.textContent = "Redirecting…";
+    try {
+      const res  = await fetch("/create-paypal-order", {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json",
+                   "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ csrf_token: csrfToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Payment unavailable. Please try again.", "error");
+        btn.disabled = false; btn.textContent = "💳 Pay with PayPal";
+        return;
+      }
+      window.location.href = data.approval_url;
+    } catch (err) {
+      showToast("Network error. Please try again.", "error");
+      btn.disabled = false; btn.textContent = "💳 Pay with PayPal";
     }
   }
 
