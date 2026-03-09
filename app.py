@@ -1480,8 +1480,8 @@ def organize_pdf_reorder():
 @limiter.limit("5 per hour")
 def create_paypal_order():
     if not PAYPAL_CLIENT_ID or not PAYPAL_CLIENT_SECRET:
-        logger.error("PayPal is not configured — missing PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET")
-        return jsonify({"error": "Payment service is not configured yet."}), 503
+        # Fall back to direct payment link if API credentials are not set
+        return jsonify({"approval_url": "https://www.paypal.com/ncp/payment/T5VKFKXKW8AYG"}), 200
 
     try:
         token    = _paypal_access_token()
