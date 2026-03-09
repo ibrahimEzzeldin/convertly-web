@@ -1638,6 +1638,29 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Translate paragraph modal -->
+<div class="modal-overlay" id="trModal">
+  <div class="modal" style="max-width:540px;width:95%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:700;font-size:16px;color:#1a1d2e">🌐 Translate PDF</div>
+      <button id="trDoneBtn" style="background:none;border:none;font-size:20px;cursor:pointer;color:#8b90a7;line-height:1">×</button>
+    </div>
+    <div id="trCounter" style="font-size:12px;color:#8b90a7;margin-bottom:12px"></div>
+
+    <div style="font-size:11px;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Original</div>
+    <div id="trSource" style="background:#f5f3ff;border:1.5px solid #6366f1;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;max-height:180px;overflow-y:auto;white-space:pre-wrap;margin-bottom:12px"></div>
+
+    <button id="trTranslateBtn" style="width:100%;padding:10px;border:none;border-radius:8px;background:#6366f1;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">🌐 Translate this</button>
+
+    <div id="trResult" style="display:none;background:#f0fdf4;border:1.5px solid #22c55e;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;max-height:180px;overflow-y:auto;white-space:pre-wrap;margin-top:12px"></div>
+
+    <div id="trNavRow" style="display:none;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button id="trDoneBtnB" style="padding:8px 18px;border-radius:8px;border:1.5px solid #e8eaf0;background:#fff;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer;">I'm done</button>
+      <button id="trNextBtn" style="padding:8px 18px;border-radius:8px;border:none;background:#1a1d2e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Next paragraph →</button>
+    </div>
+  </div>
+</div>
+
 <!-- Upgrade modal -->
 <div class="modal-overlay" id="upgradeModal">
   <div class="modal">
@@ -3849,72 +3872,98 @@
   }
 
   // ── Translate PDF ────────────────────────────────────────────────────────
+  let _trParagraphs = [], _trIndex = 0, _trLang = "";
+
   async function doTranslate() {
     if (!selectedFile) { showToast("Please select a PDF file first.", "error"); return; }
-    if (quotaState.conversions_remaining <= 0) { openUpgradeModal(); return; }
 
-    const targetLang = document.getElementById("translateTargetLang").value;
-    const btn        = document.getElementById("convertBtn");
-    const progress   = document.getElementById("progressWrap");
-    const statsEl    = document.getElementById("translateStats");
+    _trLang      = document.getElementById("translateTargetLang").value;
+    const btn    = document.getElementById("convertBtn");
+    const prog   = document.getElementById("progressWrap");
 
-    btn.disabled = true; btn.textContent = "Translating…";
-    progress.classList.add("visible");
-    statsEl.classList.remove("visible");
-
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
-    if (!csrfToken || csrfToken.includes("csrf_token")) {
-      showToast("Backend not detected. Open from http://127.0.0.1:5000", "error");
-      btn.disabled = false; btn.textContent = BTN_LABELS["translate-pdf"];
-      progress.classList.remove("visible"); return;
-    }
-
-    const form = new FormData();
-    form.append("file",        selectedFile);
-    form.append("target_lang", targetLang);
-    form.append("csrf_token",  csrfToken);
+    btn.disabled = true; btn.textContent = "Extracting…";
+    prog.classList.add("visible");
 
     try {
-      const res = await fetch("/translate-pdf", {
+      const form = new FormData();
+      form.append("file", selectedFile);
+      form.append("csrf_token", csrfToken);
+
+      const res  = await fetch("/extract-pdf-paragraphs", {
         method: "POST", body: form, credentials: "same-origin",
         headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to extract text.");
 
-      if (res.status === 402) { await refreshQuota(); openUpgradeModal(); return; }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Translation failed.");
-      }
-
-      const blob  = await res.blob();
-      const pages = res.headers.get("X-Total-Pages") || "?";
-      const cd    = res.headers.get("Content-Disposition") || "";
-      const m     = cd.match(/filename="?([^"]+)"?/);
-      const fname = m ? m[1] : "translated.pdf";
-
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement("a");
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      statsEl.textContent = "✅ Translated " + pages + " page(s) to " + targetLang + ".";
-      statsEl.classList.add("visible");
-      showToast("Done! Translated PDF downloaded.", "success");
-      await refreshQuota();
-
+      _trParagraphs = data.paragraphs;
+      _trIndex      = 0;
+      _trShowParagraph();
+      document.getElementById("trModal").classList.add("open");
     } catch (err) {
-      const msg = (err && err.message) ? err.message : "Request failed.";
-      if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-        showToast("Cannot reach backend. Start Flask first.", "error");
-      } else {
-        showToast("Error: " + msg, "error");
-      }
+      showToast("Error: " + err.message, "error");
     } finally {
       btn.disabled = false; btn.textContent = BTN_LABELS["translate-pdf"];
-      progress.classList.remove("visible");
+      prog.classList.remove("visible");
     }
   }
+
+  function _trShowParagraph() {
+    const p = _trParagraphs[_trIndex];
+    document.getElementById("trCounter").textContent =
+      "Paragraph " + (_trIndex + 1) + " of " + _trParagraphs.length + "  ·  Page " + p.page;
+    document.getElementById("trSource").textContent  = p.text;
+    document.getElementById("trResult").style.display  = "none";
+    document.getElementById("trResult").textContent   = "";
+    document.getElementById("trNavRow").style.display  = "none";
+    const tb = document.getElementById("trTranslateBtn");
+    tb.disabled = false; tb.textContent = "🌐 Translate this";
+  }
+
+  async function _trTranslate() {
+    const btn = document.getElementById("trTranslateBtn");
+    btn.disabled = true; btn.textContent = "Translating…";
+    try {
+      const res  = await fetch("/translate-chunk", {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json",
+                   "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ text: _trParagraphs[_trIndex].text,
+                               target_lang: _trLang, csrf_token: csrfToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Translation failed.");
+
+      const box = document.getElementById("trResult");
+      box.textContent  = data.translated;
+      box.style.display = "block";
+      document.getElementById("trNavRow").style.display = "flex";
+      document.getElementById("trNextBtn").style.display =
+        _trIndex < _trParagraphs.length - 1 ? "inline-block" : "none";
+      btn.textContent = "✓ Translated";
+    } catch (err) {
+      showToast("Error: " + err.message, "error");
+      btn.disabled = false; btn.textContent = "🌐 Translate this";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("trTranslateBtn").addEventListener("click", _trTranslate);
+    document.getElementById("trNextBtn").addEventListener("click", () => {
+      _trIndex++;
+      _trShowParagraph();
+    });
+    document.getElementById("trDoneBtn").addEventListener("click", () => {
+      document.getElementById("trModal").classList.remove("open");
+    });
+    document.getElementById("trDoneBtnB").addEventListener("click", () => {
+      document.getElementById("trModal").classList.remove("open");
+    });
+    document.getElementById("trModal").addEventListener("click", e => {
+      if (e.target === document.getElementById("trModal"))
+        document.getElementById("trModal").classList.remove("open");
+    });
+  });
 
   // ── Sign PDF ──────────────────────────────────────────────────────────────
   // Canvas drawing setup (IIFE, runs once)

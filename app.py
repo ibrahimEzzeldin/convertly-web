@@ -2785,6 +2785,86 @@ def _mymemory_translate(text, target_code, chunk_size=480):
             raise Exception(f"MyMemory error {data.get('responseStatus')}: {data.get('responseDetails', '')}")
     return " ".join(out)
 
+
+def _split_to_chunks(text, max_chars=480):
+    """Split text into chunks of at most max_chars, breaking at sentence boundaries."""
+    if len(text) <= max_chars:
+        return [text]
+    import re as _re
+    sentences = _re.split(r'(?<=[.!?])\s+', text)
+    chunks, current = [], ""
+    for s in sentences:
+        if len(current) + len(s) + 1 <= max_chars:
+            current = (current + " " + s).strip()
+        else:
+            if current:
+                chunks.append(current)
+            if len(s) > max_chars:
+                for i in range(0, len(s), max_chars):
+                    chunks.append(s[i:i + max_chars])
+                current = ""
+            else:
+                current = s
+    if current:
+        chunks.append(current)
+    return chunks or [text[:max_chars]]
+
+
+@app.route("/extract-pdf-paragraphs", methods=["POST"])
+@limiter.limit("20 per minute")
+def extract_pdf_paragraphs():
+    file = request.files.get("file")
+    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    uid      = str(uuid.uuid4())
+    src_path = os.path.join(app.config["UPLOAD_FOLDER"],
+                            f"{uid}_{os.path.basename(file.filename)}")
+    file.save(src_path)
+    try:
+        doc        = fitz.open(src_path)
+        paragraphs = []
+        for page_num in range(len(doc)):
+            page   = doc.load_page(page_num)
+            blocks = page.get_text("blocks")
+            for block in blocks:
+                if block[6] != 0:          # skip image blocks
+                    continue
+                text = block[4].strip()
+                if not text or len(text) < 10:
+                    continue
+                for chunk in _split_to_chunks(text):
+                    if chunk.strip():
+                        paragraphs.append({"text": chunk.strip(), "page": page_num + 1})
+        doc.close()
+    finally:
+        try: os.remove(src_path)
+        except: pass
+
+    if not paragraphs:
+        return jsonify({"error": "No text found in PDF. Try OCR PDF first for scanned documents."}), 400
+
+    return jsonify({"paragraphs": paragraphs, "total": len(paragraphs)})
+
+
+@app.route("/translate-chunk", methods=["POST"])
+@limiter.limit("60 per minute")
+def translate_chunk():
+    data        = request.get_json(silent=True) or {}
+    text        = str(data.get("text", "")).strip()[:480]
+    target_lang = str(data.get("target_lang", "English")).strip()
+    if not text:
+        return jsonify({"error": "No text provided."}), 400
+    target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
+    try:
+        translated = _mymemory_translate(text, target_code)
+        return jsonify({"translated": translated})
+    except Exception as exc:
+        logger.error("translate-chunk error: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+
 @app.route("/translate-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def translate_pdf_route():
