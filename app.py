@@ -69,22 +69,6 @@ def _load_voucher_codes():
     return {c.strip().upper() for c in raw.split(",") if c.strip()}
 
 
-# ── Argos Translate — pre-install common language pairs at startup ───────────
-# Runs in a background thread so it never blocks server startup.
-# Set ARGOS_PACKAGES_DIR to a persistent path on paid Render plans to avoid
-# re-downloading ~100 MB per pair on every dyno restart.
-try:
-    from translation_service import preinstall_pairs as _preinstall_argos
-    _ARGOS_PREINSTALL_PAIRS = [
-        ("en", "ar"), ("en", "fr"), ("en", "es"), ("en", "de"),
-        ("en", "it"), ("en", "pt"), ("en", "ru"), ("en", "zh"),
-        ("en", "ja"), ("en", "ko"), ("en", "tr"), ("en", "nl"),
-        ("en", "pl"), ("en", "hi"), ("en", "uk"), ("en", "sv"),
-    ]
-    _preinstall_argos(_ARGOS_PREINSTALL_PAIRS)
-except Exception as _argos_init_err:
-    logger.warning("Argos Translate pre-install skipped: %s", _argos_init_err)
-
 # ── Magic byte signatures ───────────────────────────────────────────────────
 MAGIC_BYTES = {
     ".pdf":  [b"%PDF"],
@@ -2589,7 +2573,7 @@ def extract_pdf_paragraphs():
 @app.route("/translate", methods=["POST"])
 @limiter.limit("60 per minute")
 def translate_endpoint():
-    """Offline translation via Argos Translate.
+    """Translation via MyMemory free API.
 
     Request JSON body:
         { "text": "...", "from_code": "en", "to_code": "fr" }
@@ -2609,11 +2593,10 @@ def translate_endpoint():
         return jsonify({"translatedText": text})
 
     try:
-        from translation_service import translate as argos_translate
-        translated = argos_translate(text, from_code, to_code)
+        translated = _mymemory_translate(text, to_code, src_code=from_code)
         return jsonify({"translatedText": translated})
     except Exception as exc:
-        logger.error("Argos /translate error (%s→%s): %s", from_code, to_code, exc)
+        logger.error("/translate error (%s→%s): %s", from_code, to_code, exc)
         return jsonify({"error": str(exc)}), 500
 
 
@@ -2626,16 +2609,6 @@ def translate_chunk():
     if not text:
         return jsonify({"error": "No text provided."}), 400
     target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
-
-    # Try Argos Translate first (offline, no rate limits)
-    try:
-        from translation_service import translate as argos_translate
-        translated = argos_translate(text, "en", target_code)
-        return jsonify({"translated": translated})
-    except Exception as argos_err:
-        logger.debug("Argos unavailable, falling back to MyMemory: %s", argos_err)
-
-    # Fallback: MyMemory free online API
     try:
         translated = _mymemory_translate(text, target_code)
         return jsonify({"translated": translated})
