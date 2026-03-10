@@ -1384,27 +1384,48 @@ def create_paypal_order():
 
 @app.route("/payment-success")
 def payment_success():
-    # PayPal passes ?token=ORDER_ID on return
+    # PayPal passes ?token=ORDER_ID&PayerID=... on return
     order_id = request.args.get("token", "")
+    payer_id = request.args.get("PayerID", "")
 
-    if not order_id:
-        return redirect("/?error=missing_token")
+    if not order_id or not payer_id:
+        logger.warning("PayPal return missing token or PayerID")
+        return redirect("/?error=payment_incomplete")
 
     try:
-        token = _paypal_access_token()
-        resp  = _requests.get(
+        access_token = _paypal_access_token()
+
+        # Step 1: check current order status
+        check_resp = _requests.get(
             f"{PAYPAL_API_BASE}/v2/checkout/orders/{order_id}",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {access_token}"},
             timeout=15,
         )
-        resp.raise_for_status()
-        order_data = resp.json()
+        check_resp.raise_for_status()
+        order_data = check_resp.json()
+        status = order_data.get("status")
+
+        # Step 2: if APPROVED, capture it — this is what converts approval → payment
+        if status == "APPROVED":
+            cap_resp = _requests.post(
+                f"{PAYPAL_API_BASE}/v2/checkout/orders/{order_id}/capture",
+                headers={
+                    "Content-Type":  "application/json",
+                    "Authorization": f"Bearer {access_token}",
+                },
+                json={},
+                timeout=15,
+            )
+            cap_resp.raise_for_status()
+            order_data = cap_resp.json()
+            status = order_data.get("status")
+
     except Exception as exc:
-        logger.error("PayPal order verification failed: %s", exc)
+        logger.error("PayPal capture failed for order %s: %s", order_id, exc)
         return redirect("/?error=payment_error")
 
-    if order_data.get("status") != "COMPLETED":
-        logger.warning("PayPal order status: %s", order_data.get("status"))
+    if status != "COMPLETED":
+        logger.warning("PayPal order %s status after capture: %s", order_id, status)
         return redirect("/?error=payment_incomplete")
 
     # Payment confirmed — extend the session budget
@@ -1412,7 +1433,7 @@ def payment_success():
     session["conversions_budget"] = current_budget + PAID_CONVERSIONS_AMOUNT
     session["paid"]               = True
 
-    # Store invoice details
+    # Store invoice details from the capture response
     unit    = order_data.get("purchase_units", [{}])[0]
     capture = unit.get("payments", {}).get("captures", [{}])[0]
     session["last_invoice"] = {
@@ -1424,7 +1445,7 @@ def payment_success():
     }
     session.modified = True
 
-    logger.info("PayPal payment confirmed for order %s; budget now %d",
+    logger.info("PayPal payment COMPLETED for order %s; budget now %d",
                 order_id, session["conversions_budget"])
     return redirect("/invoice")
 
