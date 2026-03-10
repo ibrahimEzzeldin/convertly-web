@@ -103,8 +103,9 @@ def install_language_pair(from_code: str, to_code: str) -> bool:
             return True
 
         except Exception as exc:
-            logger.error(
-                "Argos install error (%s→%s): %s", from_code, to_code, exc
+            logger.warning(
+                "Argos install failed (%s→%s): %s — will use online fallback",
+                from_code, to_code, exc,
             )
             return False
 
@@ -164,8 +165,8 @@ def preinstall_pairs(pairs: list[tuple[str, str]]) -> None:
             try:
                 install_language_pair(from_code, to_code)
             except Exception as exc:
-                logger.error(
-                    "Argos preinstall failed (%s→%s): %s", from_code, to_code, exc
+                logger.warning(
+                    "Argos preinstall skipped (%s→%s): %s", from_code, to_code, exc
                 )
 
     t = threading.Thread(target=_run, daemon=True, name="argos-preinstall")
