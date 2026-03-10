@@ -118,12 +118,14 @@ def set_security_headers(response):
     response.headers["Permissions-Policy"]     = "camera=(), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
         f"default-src 'self'; "
-        f"script-src 'self' 'nonce-{nonce}'; "
-        f"style-src 'self' 'unsafe-inline'; "
-        f"img-src 'self' data: https://www.paypalobjects.com; "
-        f"connect-src 'self'; "
-        f"frame-src https://www.paypal.com; "
-        f"form-action 'self' https://www.paypal.com; "
+        f"script-src 'self' 'nonce-{nonce}' "
+            f"https://*.paypal.com https://*.paypalobjects.com; "
+        f"style-src 'self' 'unsafe-inline' https://www.paypalobjects.com; "
+        f"img-src 'self' data: https://*.paypal.com https://*.paypalobjects.com; "
+        f"connect-src 'self' https://*.paypal.com https://api.paypal.com; "
+        f"frame-src https://*.paypal.com https://www.paypal.com; "
+        f"form-action 'self' https://www.paypal.com https://*.paypal.com; "
+        f"font-src 'self' https://www.paypalobjects.com; "
         f"base-uri 'self';"
     )
     return response
@@ -2421,62 +2423,78 @@ _MYMEMORY_LANG_CODE = {
     "Indonesian": "id", "Vietnamese": "vi",
 }
 
-def _mymemory_translate(text, target_code, chunk_size=480, src_code="en"):
-    """Translate text via MyMemory free API (no key required)."""
-    if not text.strip():
-        return text
-    parts = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
-    out = []
-    for idx, part in enumerate(parts):
-        if idx > 0:
-            time.sleep(0.6)   # stay within MyMemory's free-tier rate limit
-        try:
-            resp = _requests.get(
-                "https://api.mymemory.translated.net/get",
-                params={"q": part, "langpair": f"{src_code}|{target_code}"},
-                timeout=30,
-            )
-            if resp.status_code == 429:
-                raise Exception(
-                    "Translation rate limit reached. Please wait a moment and try again."
-                )
-            resp.raise_for_status()
-        except _requests.HTTPError as http_err:
-            if http_err.response is not None and http_err.response.status_code == 429:
-                raise Exception(
-                    "Translation rate limit reached. Please wait a moment and try again."
-                )
-            raise
-        data = resp.json()
-        if data.get("responseStatus") == 200:
-            out.append(data["responseData"]["translatedText"])
-        else:
-            raise Exception(f"MyMemory error {data.get('responseStatus')}: {data.get('responseDetails', '')}")
-    return " ".join(out)
+_MYMEMORY_URL        = "https://api.mymemory.translated.net/get"
+_MAX_CHUNK_SIZE      = 400
+_CHUNK_DELAY         = 1.0   # seconds between chunks
+_MAX_RETRIES         = 3
 
 
-def _split_to_chunks(text, max_chars=480):
-    """Split text into chunks of at most max_chars, breaking at sentence boundaries."""
-    if len(text) <= max_chars:
-        return [text]
-    import re as _re
-    sentences = _re.split(r'(?<=[.!?])\s+', text)
+def _split_to_chunks(text, max_size=_MAX_CHUNK_SIZE):
+    """Split text into chunks at sentence boundaries, each ≤ max_size chars."""
+    # Normalise newlines into sentence-like splits
+    sentences = []
+    for line in text.replace('\n', ' \n ').split('\n'):
+        for s in line.replace('. ', '.|').replace('! ', '!|').replace('? ', '?|').split('|'):
+            if s.strip():
+                sentences.append(s.strip())
+
     chunks, current = [], ""
-    for s in sentences:
-        if len(current) + len(s) + 1 <= max_chars:
-            current = (current + " " + s).strip()
+    for sentence in sentences:
+        if len(current) + len(sentence) + 1 <= max_size:
+            current += (" " if current else "") + sentence
         else:
             if current:
                 chunks.append(current)
-            if len(s) > max_chars:
-                for i in range(0, len(s), max_chars):
-                    chunks.append(s[i:i + max_chars])
+            # If a single sentence exceeds max_size, hard-split it
+            if len(sentence) > max_size:
+                for i in range(0, len(sentence), max_size):
+                    chunks.append(sentence[i:i + max_size])
                 current = ""
             else:
-                current = s
+                current = sentence
     if current:
         chunks.append(current)
-    return chunks or [text[:max_chars]]
+    return chunks or [text[:max_size]]
+
+
+def _translate_one_chunk(text, src_code, target_code):
+    """Translate a single chunk via MyMemory with exponential-backoff retry."""
+    for attempt in range(_MAX_RETRIES):
+        try:
+            resp = _requests.get(
+                _MYMEMORY_URL,
+                params={"q": text, "langpair": f"{src_code}|{target_code}"},
+                timeout=15,
+            )
+            data = resp.json()
+            translated = data.get("responseData", {}).get("translatedText", "")
+            # Detect rate-limit signals
+            if resp.status_code == 429 or data.get("responseStatus") == 429 \
+                    or "MYMEMORY WARNING" in translated:
+                wait = 3 * (attempt + 1)
+                logger.warning("MyMemory rate limit hit, retrying in %ds (attempt %d)", wait, attempt + 1)
+                time.sleep(wait)
+                continue
+            if data.get("responseStatus") == 200:
+                return translated
+            raise Exception(f"MyMemory error {data.get('responseStatus')}: {data.get('responseDetails', '')}")
+        except _requests.RequestException:
+            time.sleep(2)
+    logger.warning("All retries failed for chunk, returning original text")
+    return text   # graceful fallback — return untranslated chunk
+
+
+def _mymemory_translate(text, target_code, src_code="en"):
+    """Translate text via MyMemory, chunking at sentence boundaries."""
+    if not text.strip():
+        return text
+    chunks = _split_to_chunks(text)
+    out = []
+    for idx, chunk in enumerate(chunks):
+        if idx > 0:
+            time.sleep(_CHUNK_DELAY)
+        out.append(_translate_one_chunk(chunk, src_code, target_code))
+    return " ".join(out)
 
 
 @app.route("/extract-text-region", methods=["POST"])

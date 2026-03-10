@@ -1712,7 +1712,7 @@
       <li>Instant unlock after payment</li>
     </ul>
     <div style="text-align:center;margin-bottom:8px">
-      <button id="paypalCheckoutBtn" onclick="startPaypalCheckout()"
+      <button id="paypalCheckoutBtn"
          style="display:inline-block;background:#0070ba;color:#fff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;border:none;cursor:pointer;letter-spacing:0.2px;">
         💳 Pay with PayPal
       </button>
@@ -1812,6 +1812,7 @@
   document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("convertBtn").addEventListener("click", doConvert);
     document.getElementById("modalCancel").addEventListener("click", closeUpgradeModal);
+    document.getElementById("paypalCheckoutBtn").addEventListener("click", startPaypalCheckout);
 
     await refreshQuota();
 
@@ -3916,7 +3917,25 @@
       const btn    = document.getElementById("trDownloadBtn");
       const status = document.getElementById("trDocStatus");
       btn.disabled = true; btn.textContent = "Translating…";
-      status.textContent = "This may take a minute for longer documents…";
+
+      // Rotating progress messages
+      const msgs = [
+        "Translating… please wait.",
+        "Still working… splitting text into chunks.",
+        "Large documents may take up to 30 seconds…",
+        "Almost there… finalizing translation.",
+      ];
+      let msgIdx = 0;
+      status.textContent = msgs[0];
+      const msgTimer = setInterval(() => {
+        msgIdx = Math.min(msgIdx + 1, msgs.length - 1);
+        status.textContent = msgs[msgIdx];
+      }, 7000);
+
+      // 60-second hard timeout
+      const controller = new AbortController();
+      const abortTimer = setTimeout(() => controller.abort(), 60000);
+
       try {
         const fd = new FormData();
         fd.append("file", _trFile);
@@ -3925,26 +3944,34 @@
         const res = await fetch("/translate-pdf", {
           method: "POST", body: fd, credentials: "same-origin",
           headers: { "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
+          signal: controller.signal,
         });
+        clearTimeout(abortTimer);
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
           if (d.error === "quota_exceeded") { showUpgradeModal(); return; }
           throw new Error(d.error || "Translation failed.");
         }
-        const blob     = await res.blob();
-        const url      = URL.createObjectURL(blob);
-        const a        = document.createElement("a");
-        a.href         = url;
-        a.download     = _trFile.name.replace(/\.pdf$/i, "") + "_translated.pdf";
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href     = url;
+        a.download = _trFile.name.replace(/\.pdf$/i, "") + "_translated.pdf";
         document.body.appendChild(a); a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         status.textContent = "Downloaded!";
         setTimeout(() => { status.textContent = ""; }, 3000);
       } catch (err) {
-        showToast("Error: " + err.message, "error");
+        clearTimeout(abortTimer);
+        if (err.name === "AbortError") {
+          showToast("Translation timed out. Try a shorter document.", "error");
+        } else {
+          showToast("Error: " + err.message, "error");
+        }
         status.textContent = "";
       } finally {
+        clearInterval(msgTimer);
         btn.disabled = false; btn.textContent = "🌐 Translate & Download PDF";
       }
     }
