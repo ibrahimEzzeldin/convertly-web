@@ -9,6 +9,11 @@ from dotenv import load_dotenv
 import os, uuid, time, logging, threading, secrets, shutil
 import requests as _requests
 from pathlib import Path
+from translation_service import (
+    translate_text as _ts_translate_text,
+    translate_chunk as _ts_translate_chunk,
+    LANG_MAP as _TS_LANG_MAP,
+)
 
 load_dotenv(override=True)
 
@@ -2632,7 +2637,7 @@ def translate_endpoint():
         return jsonify({"translatedText": text})
 
     try:
-        translated = _mymemory_translate(text, to_code, src_code=from_code)
+        translated = _ts_translate_text(text, from_code, to_code)
         return jsonify({"translatedText": translated})
     except Exception as exc:
         logger.error("/translate error (%s→%s): %s", from_code, to_code, exc)
@@ -2647,9 +2652,9 @@ def translate_chunk():
     target_lang = str(data.get("target_lang", "English")).strip()
     if not text:
         return jsonify({"error": "No text provided."}), 400
-    target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
+    target_code = _TS_LANG_MAP.get(target_lang, "en")
     try:
-        translated = _mymemory_translate(text, target_code)
+        translated = _ts_translate_chunk(text, "en", target_code)
         return jsonify({"translated": translated})
     except Exception as exc:
         logger.error("translate-chunk error: %s", exc)
@@ -2681,7 +2686,7 @@ def translate_pdf_route():
     target_lang = request.form.get("target_lang", "English").strip()
     if target_lang not in TRANSLATE_TARGET_LANGS:
         target_lang = "English"
-    target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
+    target_code = _TS_LANG_MAP.get(target_lang, "en")
 
     uid       = str(uuid.uuid4())
     safe_name = os.path.basename(file.filename)
@@ -2739,7 +2744,7 @@ def translate_pdf_route():
             if not page_text.strip():
                 translated_pages.append("")
                 continue
-            translated_pages.append(_mymemory_translate(page_text, target_code))
+            translated_pages.append(_ts_translate_text(page_text, "en", target_code))
 
         # ── Build output PDF with proper pagination ──────────────────────────
         import textwrap as _textwrap
@@ -2809,10 +2814,6 @@ def translate_pdf_route():
             try: os.remove(out_path)
             except Exception: pass
         err_str = str(exc)
-        if "AuthenticationError" in type(exc).__name__ or "api_key" in err_str.lower():
-            return jsonify({"error": "Invalid Anthropic API key. Check server configuration."}), 502
-        if "RateLimitError" in type(exc).__name__:
-            return jsonify({"error": "AI translation rate limit reached. Try again shortly."}), 429
         return jsonify({"error": f"Translation failed: {err_str[:200]}"}), 500
     finally:
         if os.path.exists(src_path):
