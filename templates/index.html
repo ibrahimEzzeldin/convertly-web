@@ -3770,7 +3770,7 @@
           method: "POST", body: fd, credentials: "same-origin",
           headers: { "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Failed to load page.");
         const img     = document.getElementById("trPageImg");
         img.src       = "data:image/jpeg;base64," + data.image;
@@ -3885,7 +3885,7 @@
           method: "POST", body: fd, credentials: "same-origin",
           headers: { "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
         });
-        const d1  = await r1.json();
+        const d1  = await r1.json().catch(() => ({}));
         if (!r1.ok) throw new Error(d1.error || "Failed to extract text.");
 
         // Step 2: translate the extracted text
@@ -3896,7 +3896,7 @@
                      "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
           body: JSON.stringify({ text: d1.text, target_lang: lang, csrf_token: csrf }),
         });
-        const d2  = await r2.json();
+        const d2  = await r2.json().catch(() => ({}));
         if (!r2.ok) throw new Error(d2.error || "Translation failed.");
 
         document.getElementById("trHighlightResultText").textContent = d2.translated;
@@ -3927,7 +3927,7 @@
           headers: { "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
         });
         if (!res.ok) {
-          const d = await res.json();
+          const d = await res.json().catch(() => ({}));
           if (d.error === "quota_exceeded") { showUpgradeModal(); return; }
           throw new Error(d.error || "Translation failed.");
         }
