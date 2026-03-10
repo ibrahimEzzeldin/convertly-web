@@ -1669,6 +1669,11 @@
           Clear selection
         </button>
       </div>
+      <!-- Free quota badge -->
+      <div style="text-align:center;margin-top:10px;">
+        <span id="tl-remaining-badge"
+          style="display:none;font-size:0.78rem;font-weight:600;"></span>
+      </div>
       <!-- Translate selected button -->
       <button id="trTranslateSelBtn" type="button" disabled
         style="width:100%;margin-top:12px;padding:11px;border:none;border-radius:8px;
@@ -3898,10 +3903,17 @@
           body: JSON.stringify({ text: d1.text, target_lang: lang, csrf_token: csrf }),
         });
         const d2  = await r2.json().catch(() => ({}));
+
+        // Free limit reached — show paywall
+        if (r2.status === 402 && d2.error === "free_limit_reached") {
+          showTranslationLimitModal(d2.used, d2.limit);
+          return;
+        }
         if (!r2.ok) throw new Error(d2.error || "Translation failed.");
 
-        document.getElementById("trHighlightResultText").textContent = d2.translated;
+        document.getElementById("trHighlightResultText").textContent = d2.translatedText;
         document.getElementById("trHighlightResult").style.display = "";
+        updateTranslationBadge(d2.remaining);
       } catch (err) {
         showToast("Error: " + err.message, "error");
       } finally {
@@ -4473,6 +4485,124 @@
     t.classList.add("show");
     setTimeout(() => t.classList.remove("show"), 3500);
   }
+
+  // ── Translation paywall ───────────────────────────────────────────────────
+  function showTranslationLimitModal(used, limit) {
+    const pct = Math.min((used / limit) * 100, 100);
+    document.getElementById('tl-usage-bar').style.width = pct + '%';
+    document.getElementById('tl-usage-count').textContent = `${used} / ${limit} used`;
+    document.getElementById('translation-limit-modal').style.display = 'flex';
+  }
+
+  function closeTranslationLimitModal() {
+    document.getElementById('translation-limit-modal').style.display = 'none';
+    document.getElementById('tl-voucher-msg').textContent = '';
+    document.getElementById('tl-voucher-input').value = '';
+  }
+
+  async function applyTranslationVoucher() {
+    const code  = document.getElementById('tl-voucher-input').value.trim();
+    const msgEl = document.getElementById('tl-voucher-msg');
+    if (!code) {
+      msgEl.style.color = '#e74c3c';
+      msgEl.textContent = 'Please enter a voucher code.';
+      return;
+    }
+    try {
+      const res  = await fetch('/apply-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        msgEl.style.color = '#22c55e';
+        msgEl.textContent = '✅ Voucher applied! Pro unlocked — enjoy unlimited translations.';
+        setTimeout(() => closeTranslationLimitModal(), 1800);
+      } else {
+        msgEl.style.color = '#e74c3c';
+        msgEl.textContent = data.message || '❌ Invalid voucher code.';
+      }
+    } catch {
+      msgEl.style.color = '#e74c3c';
+      msgEl.textContent = '❌ Something went wrong. Please try again.';
+    }
+  }
+
+  function updateTranslationBadge(remaining) {
+    const badge = document.getElementById('tl-remaining-badge');
+    if (!badge) return;
+    if (remaining === null || remaining === undefined) {
+      badge.style.display = 'none';
+      return;
+    }
+    badge.style.display = 'inline-block';
+    badge.textContent   = `${remaining} free translation${remaining !== 1 ? 's' : ''} left today`;
+    badge.style.color   = remaining <= 1 ? '#e74c3c' : '#7c3aed';
+  }
 </script>
+
+<!-- Translation limit paywall modal -->
+<div id="translation-limit-modal"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;
+         align-items:center;justify-content:center;">
+  <div style="position:relative;max-width:420px;width:90%;background:#fff;border-radius:16px;
+              padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,0.15);text-align:center;">
+    <button onclick="closeTranslationLimitModal()"
+      style="position:absolute;top:12px;right:16px;background:none;border:none;
+             font-size:1.4rem;cursor:pointer;color:#aaa;">×</button>
+    <span style="font-size:2rem;">🌐</span>
+    <h2 style="font-size:1.4rem;font-weight:700;margin:8px 0 20px;color:#1a1a2e;">Free Translations Used</h2>
+    <!-- Usage bar -->
+    <div style="background:#f8f7ff;border-radius:10px;padding:12px 16px;margin-bottom:20px;text-align:left;">
+      <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#555;margin-bottom:6px;">
+        <span>Daily translations</span>
+        <span id="tl-usage-count" style="font-weight:700;color:#e74c3c;">3 / 3 used</span>
+      </div>
+      <div style="height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;">
+        <div id="tl-usage-bar"
+          style="height:100%;background:linear-gradient(90deg,#7c3aed,#a855f7);border-radius:4px;
+                 width:100%;transition:width 0.4s;"></div>
+      </div>
+      <p style="font-size:0.75rem;color:#888;margin:6px 0 0;">🔄 Resets at midnight UTC</p>
+    </div>
+    <!-- Features list -->
+    <p style="font-size:0.95rem;color:#333;margin-bottom:10px;">Unlock <strong>unlimited translations</strong> and all Pro features:</p>
+    <ul style="list-style:none;padding:0;margin:0 0 20px;text-align:left;">
+      <li style="padding:4px 0;font-size:0.9rem;color:#444;">✅ Unlimited highlight translations</li>
+      <li style="padding:4px 0;font-size:0.9rem;color:#444;">✅ All 23 languages supported</li>
+      <li style="padding:4px 0;font-size:0.9rem;color:#444;">✅ 20 additional file conversions</li>
+      <li style="padding:4px 0;font-size:0.9rem;color:#444;">✅ One-time payment — no subscription</li>
+    </ul>
+    <!-- Price -->
+    <div style="background:#f0ebff;border-radius:10px;padding:12px;margin-bottom:16px;">
+      <span style="font-size:2rem;font-weight:800;color:#7c3aed;">$2.00</span>
+      <span style="display:block;font-size:0.8rem;color:#888;margin-top:2px;">one-time · no subscription</span>
+    </div>
+    <!-- PayPal -->
+    <button onclick="startPaypalCheckout(); closeTranslationLimitModal();"
+      style="width:100%;padding:14px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;
+             border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:16px;">
+      💳 Unlock Pro with PayPal
+    </button>
+    <!-- Voucher divider -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;color:#aaa;font-size:0.8rem;">
+      <div style="flex:1;height:1px;background:#e5e5e5;"></div>
+      <span>or use a voucher code</span>
+      <div style="flex:1;height:1px;background:#e5e5e5;"></div>
+    </div>
+    <!-- Voucher input -->
+    <div style="display:flex;gap:8px;margin-bottom:6px;">
+      <input id="tl-voucher-input" type="text" placeholder="Enter voucher e.g. FRIEND2025"
+        style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.85rem;" />
+      <button onclick="applyTranslationVoucher()"
+        style="padding:10px 16px;background:#1a1a2e;color:white;border:none;border-radius:8px;
+               font-weight:600;cursor:pointer;font-size:0.85rem;">Apply</button>
+    </div>
+    <p id="tl-voucher-msg" style="font-size:0.8rem;min-height:18px;margin:4px 0 12px;"></p>
+    <button onclick="closeTranslationLimitModal()"
+      style="background:none;border:none;color:#aaa;font-size:0.8rem;cursor:pointer;">Maybe later</button>
+  </div>
+</div>
 </body>
 </html>

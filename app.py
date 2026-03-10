@@ -9,11 +9,8 @@ from dotenv import load_dotenv
 import os, uuid, time, logging, threading, secrets, shutil
 import requests as _requests
 from pathlib import Path
-from translation_service import (
-    translate_text as _ts_translate_text,
-    translate_chunk as _ts_translate_chunk,
-    LANG_MAP as _TS_LANG_MAP,
-)
+from translation_service import translate_text as _ts_translate_text
+from datetime import datetime as _datetime
 
 load_dotenv(override=True)
 
@@ -1433,10 +1430,11 @@ def payment_success():
         logger.warning("PayPal order %s status after capture: %s", order_id, status)
         return redirect("/?error=payment_incomplete")
 
-    # Payment confirmed — extend the session budget
+    # Payment confirmed — extend the session budget and unlock pro features
     current_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
     session["conversions_budget"] = current_budget + PAID_CONVERSIONS_AMOUNT
     session["paid"]               = True
+    session["pro_unlocked"]       = True
 
     # Store invoice details from the capture response
     unit    = order_data.get("purchase_units", [{}])[0]
@@ -2644,18 +2642,47 @@ def translate_endpoint():
         return jsonify({"error": str(exc)}), 500
 
 
+FREE_DAILY_TRANSLATIONS = 3
+
 @app.route("/translate-chunk", methods=["POST"])
 @limiter.limit("60 per minute")
 def translate_chunk():
-    data        = request.get_json(silent=True) or {}
-    text        = str(data.get("text", "")).strip()[:480]
-    target_lang = str(data.get("target_lang", "English")).strip()
-    if not text:
-        return jsonify({"error": "No text provided."}), 400
-    target_code = _TS_LANG_MAP.get(target_lang, "en")
     try:
-        translated = _ts_translate_chunk(text, "en", target_code)
-        return jsonify({"translated": translated})
+        data        = request.get_json(silent=True) or {}
+        text        = str(data.get("text", "")).strip()
+        target_lang = str(data.get("target_lang", "English")).strip()
+
+        if not text:
+            return jsonify({"error": "No text provided."}), 400
+
+        is_pro = session.get("pro_unlocked", False)
+
+        if not is_pro:
+            today = _datetime.utcnow().strftime("%Y-%m-%d")
+            usage = session.get("translation_usage", {"date": today, "count": 0})
+            if usage.get("date") != today:
+                usage = {"date": today, "count": 0}
+            if usage["count"] >= FREE_DAILY_TRANSLATIONS:
+                return jsonify({
+                    "error":   "free_limit_reached",
+                    "used":    usage["count"],
+                    "limit":   FREE_DAILY_TRANSLATIONS,
+                    "message": f"You've used your {FREE_DAILY_TRANSLATIONS} free daily translations.",
+                }), 402
+            usage["count"] += 1
+            session["translation_usage"] = usage
+            session.modified = True
+
+        target_code = _MYMEMORY_LANG_CODE.get(target_lang, target_lang.lower())
+        translated  = _ts_translate_text(text, "en", target_code)
+
+        remaining = None
+        if not is_pro:
+            usage = session.get("translation_usage", {})
+            remaining = max(0, FREE_DAILY_TRANSLATIONS - usage.get("count", 0))
+
+        return jsonify({"translatedText": translated, "remaining": remaining})
+
     except Exception as exc:
         logger.error("translate-chunk error: %s", exc)
         return jsonify({"error": str(exc)}), 500
@@ -2686,7 +2713,7 @@ def translate_pdf_route():
     target_lang = request.form.get("target_lang", "English").strip()
     if target_lang not in TRANSLATE_TARGET_LANGS:
         target_lang = "English"
-    target_code = _TS_LANG_MAP.get(target_lang, "en")
+    target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
 
     uid       = str(uuid.uuid4())
     safe_name = os.path.basename(file.filename)
@@ -2804,9 +2831,8 @@ def translate_pdf_route():
 
         new_doc.save(out_path, garbage=4, deflate=True)
         new_doc.close()
-        logger.info("Translate PDF: %d src pages → %d out pages, lang=%s, uid=%s",
-                    total_pages, new_doc.page_count if not new_doc.is_closed else "?",
-                    target_lang, uid)
+        logger.info("Translate PDF: %d src pages, lang=%s, uid=%s",
+                    total_pages, str(target_lang), str(uid))
 
     except Exception as exc:
         logger.error("Translate PDF error: %s", exc, exc_info=True)
@@ -3212,6 +3238,31 @@ def edit_pdf_route():
     response.headers["X-Total-Pages"]  = str(total_pages)
     response.headers["Access-Control-Expose-Headers"] = "X-Pages-Edited, X-Total-Pages"
     return response
+
+
+# ── Apply translation voucher (unlocks pro_unlocked flag) ──────────────────
+
+@app.route("/apply-voucher", methods=["POST"])
+@limiter.limit("10 per minute")
+def apply_voucher():
+    """Validate a voucher code and unlock pro translation for this session."""
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("code", "")).strip().upper()
+    if not code:
+        return jsonify({"success": False, "message": "Please enter a voucher code."}), 400
+    valid_codes = _load_voucher_codes()
+    if not valid_codes:
+        return jsonify({"success": False, "message": "Voucher system is not enabled on this server."}), 503
+    if code not in valid_codes:
+        return jsonify({"success": False, "message": "Invalid voucher code. Please check and try again."}), 400
+    redeemed = session.get("redeemed_vouchers", [])
+    if code in redeemed:
+        return jsonify({"success": False, "message": "This voucher has already been used in this session."}), 400
+    session["pro_unlocked"]      = True
+    session["redeemed_vouchers"] = redeemed + [code]
+    session.modified = True
+    logger.info("Translation voucher applied: code=%s", code)
+    return jsonify({"success": True, "message": "Pro unlocked — enjoy unlimited translations!"})
 
 
 # ── Redeem voucher ─────────────────────────────────────────────────────────
