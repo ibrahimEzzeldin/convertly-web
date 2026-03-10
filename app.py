@@ -12,6 +12,28 @@ from pathlib import Path
 from translation_service import translate_text as _ts_translate_text
 from datetime import datetime as _datetime
 
+# ── RTL (Arabic / Hebrew) rendering helpers ────────────────────────────────
+try:
+    import arabic_reshaper as _arabic_reshaper
+    from bidi.algorithm import get_display as _bidi_get_display
+    _RTL_LIBS_OK = True
+except ImportError:
+    _RTL_LIBS_OK = False
+
+_RTL_LANG_NAMES = {"Arabic", "Hebrew"}
+
+def _is_rtl_lang(lang_name: str) -> bool:
+    return lang_name in _RTL_LANG_NAMES
+
+def _prepare_rtl_text(text: str) -> str:
+    """Reshape + reorder Arabic/Hebrew text for correct PDF glyph rendering."""
+    if not _RTL_LIBS_OK:
+        return text
+    try:
+        return _bidi_get_display(_arabic_reshaper.reshape(text))
+    except Exception:
+        return text
+
 load_dotenv(override=True)
 
 # ── Logging ────────────────────────────────────────────────────────────────
@@ -2681,7 +2703,8 @@ def translate_chunk():
             usage = session.get("translation_usage", {})
             remaining = max(0, FREE_DAILY_TRANSLATIONS - usage.get("count", 0))
 
-        return jsonify({"translatedText": translated, "remaining": remaining})
+        is_rtl = target_lang in _RTL_LANG_NAMES or target_code in {"ar", "he", "ar-SA", "he-IL"}
+        return jsonify({"translatedText": translated, "remaining": remaining, "isRtl": is_rtl})
 
     except Exception as exc:
         logger.error("translate-chunk error: %s", exc)
@@ -2743,28 +2766,29 @@ def translate_pdf_route():
         if not any(t for t in pages_text):
             return jsonify({"error": "No text found in PDF. This tool only works on text-based PDFs, not scanned images."}), 400
 
-        fitz_font = _TRANSLATE_FITZ_FONT.get(target_lang, "helv")
+        fitz_font  = _TRANSLATE_FITZ_FONT.get(target_lang, "helv")
+        rtl        = _is_rtl_lang(target_lang)
 
-        # Detect a system TTF for languages helv cannot render (Arabic, Hebrew, etc.)
-        _RTL_LANGS = {"Arabic", "Hebrew"}
-        font_file  = None
-        if target_lang in _RTL_LANGS:
+        # Path to bundled Arabic font (used for all RTL languages)
+        _amiri_path = os.path.join(app.root_path, "static", "fonts", "Amiri-Regular.ttf")
+        use_amiri   = rtl and os.path.exists(_amiri_path) and _RTL_LIBS_OK
+
+        # Fallback system font search (only for non-Amiri RTL or CJK)
+        font_file = None
+        if not use_amiri:
             _candidates = [
-                # Windows
-                "C:/Windows/Fonts/arialuni.ttf",   # Arial Unicode MS (best coverage)
-                "C:/Windows/Fonts/tahoma.ttf",      # Tahoma — good Arabic
-                "C:/Windows/Fonts/arial.ttf",       # Arial
-                "C:/Windows/Fonts/times.ttf",
-                # Linux / Render
+                "C:/Windows/Fonts/arialuni.ttf",
+                "C:/Windows/Fonts/tahoma.ttf",
+                "C:/Windows/Fonts/arial.ttf",
                 "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
                 "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
             ]
-            for _p in _candidates:
-                if os.path.exists(_p):
-                    font_file = _p
-                    break
+            if target_lang in {"Arabic", "Hebrew"} or fitz_font != "helv":
+                for _p in _candidates:
+                    if os.path.exists(_p):
+                        font_file = _p
+                        break
 
         translated_pages = []
         for page_text in pages_text:
@@ -2773,54 +2797,83 @@ def translate_pdf_route():
                 continue
             translated_pages.append(_ts_translate_text(page_text, "en", target_code))
 
-        # ── Build output PDF with proper pagination ──────────────────────────
+        # ── Build output PDF ─────────────────────────────────────────────────
         import textwrap as _textwrap
 
         new_doc = fitz.open()
         A4_W, A4_H = 595.0, 842.0
         MARGIN     = 50.0
         FONTSIZE   = 11
-        LINE_H     = FONTSIZE * 1.45        # pt per line
-        USABLE_W   = A4_W - 2 * MARGIN     # 495 pt
-        USABLE_H   = A4_H - 2 * MARGIN     # 742 pt
+        LINE_H     = FONTSIZE * 1.45
+        USABLE_W   = A4_W - 2 * MARGIN
+        USABLE_H   = A4_H - 2 * MARGIN
 
-        # Rough chars-per-line estimate for word-wrap (Helvetica ≈ 0.55*fs per char)
         CHARS_PER_LINE = max(40, int(USABLE_W / (FONTSIZE * 0.55)))
         LINES_PER_PAGE = max(10, int(USABLE_H / LINE_H))
 
-        def _paginate(text):
-            """Wrap text and split into page-sized chunks."""
+        def _paginate_ltr(text):
             lines = []
             for para in text.split("\n"):
                 if para.strip():
                     lines.extend(_textwrap.wrap(para, width=CHARS_PER_LINE) or [""])
-                lines.append("")       # blank line between paragraphs
+                lines.append("")
             chunks = []
             for start in range(0, max(1, len(lines)), LINES_PER_PAGE):
                 chunks.append("\n".join(lines[start:start + LINES_PER_PAGE]))
             return chunks or [""]
 
+        def _paginate_rtl(text):
+            """Split RTL text into page-sized character blocks (no textwrap)."""
+            MAX_CHARS = 1800
+            if len(text) <= MAX_CHARS:
+                return [text]
+            chunks, current = [], ""
+            for line in text.split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+                if len(current) + len(line) + 1 <= MAX_CHARS:
+                    current += ("\n" if current else "") + line
+                else:
+                    if current:
+                        chunks.append(current)
+                    current = line
+            if current:
+                chunks.append(current)
+            return chunks or [text]
+
         def _add_page(text_chunk):
             pg   = new_doc.new_page(width=A4_W, height=A4_H)
             rect = fitz.Rect(MARGIN, MARGIN, A4_W - MARGIN, A4_H - MARGIN)
-            kwargs = dict(fontsize=FONTSIZE, color=(0.05, 0.05, 0.05), align=0)
-            try:
-                if font_file:
-                    kwargs["fontfile"] = font_file
-                    kwargs["fontname"] = "custom"
-                else:
-                    kwargs["fontname"] = fitz_font
-                rv = pg.insert_textbox(rect, text_chunk, **kwargs)
-                if rv < 0:          # should not happen after pagination, but guard anyway
-                    logger.warning("Translate: insert_textbox slight overflow rv=%.1f", rv)
-            except Exception as _fe:
-                logger.warning("Translate font error, fallback helv: %s", _fe)
+            if use_amiri:
+                # RTL: reshape + reorder, then right-align with Amiri font
+                display = _prepare_rtl_text(text_chunk)
+                pg.insert_font(fontname="Amiri", fontfile=_amiri_path)
+                rv = pg.insert_textbox(rect, display, fontname="Amiri",
+                                       fontsize=FONTSIZE, color=(0.05, 0.05, 0.05), align=2)
+                if rv < 0:
+                    pg.insert_textbox(rect, display, fontname="Amiri",
+                                      fontsize=9, color=(0.05, 0.05, 0.05), align=2)
+            else:
+                kwargs = dict(fontsize=FONTSIZE, color=(0.05, 0.05, 0.05), align=0)
                 try:
-                    pg.insert_textbox(rect, text_chunk, fontname="helv", **{
-                        k: v for k, v in kwargs.items() if k not in ("fontfile", "fontname", "custom")
-                    })
-                except Exception:
-                    pass
+                    if font_file:
+                        kwargs["fontfile"] = font_file
+                        kwargs["fontname"] = "custom"
+                    else:
+                        kwargs["fontname"] = fitz_font
+                    rv = pg.insert_textbox(rect, text_chunk, **kwargs)
+                    if rv < 0:
+                        logger.warning("Translate: insert_textbox overflow rv=%.1f", rv)
+                except Exception as _fe:
+                    logger.warning("Translate font error, fallback helv: %s", _fe)
+                    try:
+                        pg.insert_textbox(rect, text_chunk, fontname="helv",
+                                          fontsize=FONTSIZE, color=(0.05, 0.05, 0.05), align=0)
+                    except Exception:
+                        pass
+
+        _paginate = _paginate_rtl if rtl else _paginate_ltr
 
         for t_text in translated_pages:
             if not t_text:

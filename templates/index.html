@@ -6,6 +6,8 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Convertly — File Converter</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -3911,7 +3913,12 @@
         }
         if (!r2.ok) throw new Error(d2.error || "Translation failed.");
 
-        document.getElementById("trHighlightResultText").textContent = d2.translatedText;
+        const resultTextEl = document.getElementById("trHighlightResultText");
+        resultTextEl.textContent  = d2.translatedText;
+        resultTextEl.style.direction  = d2.isRtl ? "rtl" : "ltr";
+        resultTextEl.style.textAlign  = d2.isRtl ? "right" : "left";
+        resultTextEl.style.fontFamily = d2.isRtl
+          ? "'Noto Sans Arabic', Arial, sans-serif" : "inherit";
         document.getElementById("trHighlightResult").style.display = "";
         updateTranslationBadge(d2.remaining);
       } catch (err) {
