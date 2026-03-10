@@ -2426,13 +2426,26 @@ def _mymemory_translate(text, target_code, chunk_size=480, src_code="en"):
         return text
     parts = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     out = []
-    for part in parts:
-        resp = _requests.get(
-            "https://api.mymemory.translated.net/get",
-            params={"q": part, "langpair": f"{src_code}|{target_code}"},
-            timeout=30,
-        )
-        resp.raise_for_status()
+    for idx, part in enumerate(parts):
+        if idx > 0:
+            time.sleep(0.6)   # stay within MyMemory's free-tier rate limit
+        try:
+            resp = _requests.get(
+                "https://api.mymemory.translated.net/get",
+                params={"q": part, "langpair": f"{src_code}|{target_code}"},
+                timeout=30,
+            )
+            if resp.status_code == 429:
+                raise Exception(
+                    "Translation rate limit reached. Please wait a moment and try again."
+                )
+            resp.raise_for_status()
+        except _requests.HTTPError as http_err:
+            if http_err.response is not None and http_err.response.status_code == 429:
+                raise Exception(
+                    "Translation rate limit reached. Please wait a moment and try again."
+                )
+            raise
         data = resp.json()
         if data.get("responseStatus") == 200:
             out.append(data["responseData"]["translatedText"])
