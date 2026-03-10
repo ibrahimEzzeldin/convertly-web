@@ -1435,208 +1435,6 @@ def invoice():
     return render_template("invoice.html", inv=inv, now=date.today().isoformat())
 
 
-# ── OCR PDF helper ─────────────────────────────────────────────────────────
-
-def _ocr_pdf_make_searchable(src_path, out_path, lang="eng", dpi=150):
-    """Render each page, run Tesseract OCR via PyMuPDF bridge, overlay invisible
-    text so the PDF becomes text-searchable.  Pages that already contain a text
-    layer are copied as-is (no re-rendering).
-
-    Returns (pages_ocrd, pages_skipped, total_pages).
-    """
-    import fitz
-
-    src_doc = fitz.open(src_path)
-    total_pages = src_doc.page_count
-    new_doc = fitz.open()
-    pages_ocrd = 0
-    pages_skipped = 0
-
-    # TESSERACT_LANG env-var is read by MuPDF's Tesseract bridge.
-    # We set it per-call so the UI language selector works.
-    old_lang = os.environ.get("TESSERACT_LANG")
-    os.environ["TESSERACT_LANG"] = lang
-
-    try:
-        for i in range(total_pages):
-            page = src_doc.load_page(i)
-
-            # If the page already has meaningful text, copy it unchanged.
-            if len(page.get_text().strip()) > 20:
-                new_doc.insert_pdf(src_doc, from_page=i, to_page=i)
-                pages_skipped += 1
-                continue
-
-            # Render the page to a JPEG for embedding as background.
-            mat = fitz.Matrix(dpi / 72.0, dpi / 72.0)
-            pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
-            try:
-                img_data = pix.tobytes("jpeg", jpg_quality=85)
-            except Exception:
-                img_data = pix.tobytes("png")
-            del pix
-
-            # Create an output page with the original page dimensions.
-            new_page = new_doc.new_page(width=page.rect.width, height=page.rect.height)
-            new_page.insert_image(new_page.rect, stream=img_data)
-            del img_data
-
-            # Run OCR via PyMuPDF's built-in Tesseract bridge.
-            # The returned TextPage has bounding boxes in original page coordinates.
-            try:
-                ocr_tp = page.get_textpage_ocr(dpi=dpi, full=True, tessdata=None)
-                text_dict = ocr_tp.extractDICT()
-
-                # Overlay invisible text (render_mode=3 = invisible in PDF spec).
-                for block in text_dict.get("blocks", []):
-                    for line in block.get("lines", []):
-                        for span in line.get("spans", []):
-                            text = span.get("text", "").strip()
-                            if not text:
-                                continue
-                            bbox = fitz.Rect(span["bbox"])
-                            fs   = max(float(span.get("size") or 0) or bbox.height, 1.0)
-                            try:
-                                new_page.insert_text(
-                                    fitz.Point(bbox.x0, bbox.y1),
-                                    text,
-                                    fontsize=fs,
-                                    render_mode=3,   # invisible text overlay
-                                )
-                            except Exception:
-                                pass  # skip unrenderable characters silently
-
-            except Exception as ocr_err:
-                logger.warning("OCR skipped for page %d: %s", i + 1, ocr_err)
-                # Page image already embedded; just mark it as processed.
-
-            pages_ocrd += 1
-
-    finally:
-        # Restore original TESSERACT_LANG so we don't bleed into other requests.
-        if old_lang is None:
-            os.environ.pop("TESSERACT_LANG", None)
-        else:
-            os.environ["TESSERACT_LANG"] = old_lang
-
-    src_doc.close()
-    new_doc.save(out_path, garbage=4, deflate=True)
-    new_doc.close()
-    return pages_ocrd, pages_skipped, total_pages
-
-
-# ── OCR PDF route ───────────────────────────────────────────────────────────
-
-@app.route("/ocr-pdf", methods=["POST"])
-@limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
-def ocr_pdf_route():
-    # ── Tesseract availability check ───────────────────────────────────────
-    if shutil.which("tesseract") is None:
-        return jsonify({
-            "error": (
-                "Tesseract OCR is not installed on this server. "
-                "Please contact support or try again later."
-            )
-        }), 503
-
-    # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
-
-    if conversions_used >= conversions_budget:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
-        }), 402
-
-    # ── Validate file ──────────────────────────────────────────────────────
-    file = request.files.get("file")
-    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
-    if not is_valid:
-        return jsonify({"error": error_msg}), 400
-
-    header = file.read(8)
-    file.seek(0)
-    if not header.startswith(b"%PDF"):
-        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
-
-    # ── Language parameter ─────────────────────────────────────────────────
-    ALLOWED_LANGS = {"eng", "fra", "deu", "spa", "ara", "chi_sim", "por", "ita"}
-    lang = request.form.get("lang", "eng").strip().lower()
-    if lang not in ALLOWED_LANGS:
-        lang = "eng"
-
-    # ── Save source file ───────────────────────────────────────────────────
-    uid       = str(uuid.uuid4())
-    safe_name = os.path.basename(file.filename)
-    src_path  = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_{safe_name}")
-    out_path  = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_ocr.pdf")
-    file.save(src_path)
-
-    pages_ocrd   = 0
-    pages_skipped = 0
-    total_pages   = 0
-
-    try:
-        def _do_ocr():
-            return _ocr_pdf_make_searchable(src_path, out_path, lang=lang, dpi=150)
-
-        pages_ocrd, pages_skipped, total_pages = _run_with_timeout(
-            _do_ocr, (), app.config["CONVERSION_TIMEOUT"]
-        )
-
-    except TimeoutError:
-        logger.error("OCR PDF timed out for %s", safe_name)
-        return jsonify({"error": "OCR timed out. Try a shorter or smaller PDF."}), 504
-
-    except Exception as exc:
-        logger.error("OCR PDF error: %s", exc, exc_info=True)
-        if os.path.exists(out_path):
-            try:
-                os.remove(out_path)
-            except Exception:
-                pass
-        return jsonify({"error": "OCR failed. The PDF may be password-protected or unreadable."}), 500
-
-    finally:
-        if os.path.exists(src_path):
-            try:
-                os.remove(src_path)
-            except Exception:
-                pass
-
-    if not os.path.exists(out_path):
-        return jsonify({"error": "OCR produced no output. Please try again."}), 500
-
-    # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
-
-    base_name     = os.path.splitext(safe_name)[0]
-    download_name = f"{base_name}_searchable.pdf"
-
-    @after_this_request
-    def remove_output(response):
-        try:
-            if os.path.exists(out_path):
-                os.remove(out_path)
-        except Exception:
-            pass
-        return response
-
-    response = send_file(out_path, as_attachment=True, download_name=download_name)
-    response.headers["X-Pages-OCRd"]    = str(pages_ocrd)
-    response.headers["X-Pages-Skipped"] = str(pages_skipped)
-    response.headers["X-Total-Pages"]   = str(total_pages)
-    response.headers["Access-Control-Expose-Headers"] = (
-        "X-Pages-OCRd, X-Pages-Skipped, X-Total-Pages"
-    )
-    return response
-
-
 # ── PDF to JPG route ───────────────────────────────────────────────────────
 
 @app.route("/pdf-to-jpg", methods=["POST"])
@@ -2701,7 +2499,7 @@ def extract_pdf_paragraphs():
         except: pass
 
     if not paragraphs:
-        return jsonify({"error": "No text found in PDF. Try OCR PDF first for scanned documents."}), 400
+        return jsonify({"error": "No text found in PDF. This tool only works on text-based PDFs, not scanned images."}), 400
 
     return jsonify({"paragraphs": paragraphs, "total": len(paragraphs)})
 
@@ -2776,7 +2574,7 @@ def translate_pdf_route():
         doc.close()
 
         if not any(t for t in pages_text):
-            return jsonify({"error": "No text found in PDF. Run OCR PDF first for scanned documents."}), 400
+            return jsonify({"error": "No text found in PDF. This tool only works on text-based PDFs, not scanned images."}), 400
 
         fitz_font = _TRANSLATE_FITZ_FONT.get(target_lang, "helv")
 

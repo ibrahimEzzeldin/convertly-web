@@ -650,14 +650,6 @@
         <div class="mode-check">✓</div>
       </button>
 
-      <button class="mode-btn" data-mode="ocr-pdf"
-        style="--color:#f59e0b;--light:#fffbeb">
-        <div class="mode-icon-wrap">🔍</div>
-        <div class="mode-label">OCR PDF</div>
-        <div class="mode-desc">Make scanned PDFs searchable</div>
-        <div class="mode-check">✓</div>
-      </button>
-
       <button class="mode-btn" data-mode="pdf-to-jpg"
         style="--color:#ec4899;--light:#fdf2f8">
         <div class="mode-icon-wrap">🖼️</div>
@@ -984,36 +976,6 @@
 
     <!-- Compression result stats (shown after successful compress) -->
     <div class="compress-stats" id="compressStats"></div>
-
-    <!-- OCR options (shown only when ocr-pdf mode is active) -->
-    <div id="ocrOptions" style="display:none; padding: 0 16px 8px;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:#8b90a7;
-                  text-transform:uppercase;padding:4px 0 10px;">OCR language</div>
-      <div class="split-opt-row selected" id="ocrLangRow"
-           style="padding:10px 14px;display:flex;align-items:center;gap:12px;">
-        <span style="font-size:13px;color:#6b7280;flex-shrink:0;">Language:</span>
-        <select id="ocrLang"
-          style="flex:1;border:1.5px solid #d1d5db;border-radius:8px;padding:6px 10px;
-                 font-size:13px;color:#1a1d2e;background:#fff;cursor:pointer;
-                 accent-color:#f59e0b;outline:none;">
-          <option value="eng">English</option>
-          <option value="fra">French</option>
-          <option value="deu">German</option>
-          <option value="spa">Spanish</option>
-          <option value="por">Portuguese</option>
-          <option value="ita">Italian</option>
-          <option value="ara">Arabic</option>
-          <option value="chi_sim">Chinese (Simplified)</option>
-        </select>
-      </div>
-      <div style="font-size:11px;color:#9ca3af;padding:6px 4px 0;">
-        Pages that already contain a text layer are copied without re-OCR.
-      </div>
-    </div>
-
-    <!-- OCR result stats badge -->
-    <div class="compress-stats" id="ocrStats"
-         style="background:#fffbeb;border-color:#fde68a;color:#92400e;"></div>
 
     <!-- PDF to JPG options (shown only when pdf-to-jpg mode is active) -->
     <div id="jpgOptions" style="display:none; padding: 0 16px 8px;">
@@ -1431,7 +1393,7 @@
         </div>
 
         <div style="font-size:11px;color:#9ca3af;padding:0 4px;">
-          ℹ️ Text-based PDFs only · Max 25 pages · Run OCR first for scanned docs
+          ℹ️ Text-based PDFs only · Max 25 pages
         </div>
 
       </div>
@@ -1725,7 +1687,6 @@
     "extract-pages":  ".pdf",
     "organize-pdf":   ".pdf",
     "compress-pdf":   ".pdf",
-    "ocr-pdf":        ".pdf",
     "pdf-to-jpg":     ".pdf",
     "jpg-to-pdf":     ".jpg,.jpeg,.png,.webp,.bmp,.gif,.tiff,.tif",
     "watermark-pdf":  ".pdf",
@@ -1748,7 +1709,6 @@
     "extract-pages":  "#6366f1",
     "organize-pdf":   "#14b8a6",
     "compress-pdf":   "#84cc16",
-    "ocr-pdf":        "#f59e0b",
     "pdf-to-jpg":     "#ec4899",
     "jpg-to-pdf":     "#7c3aed",
     "watermark-pdf":  "#0891b2",
@@ -1771,7 +1731,6 @@
     "extract-pages":  "📤  Extract Pages",
     "organize-pdf":   "📐  Apply & Download",
     "compress-pdf":   "🗜️  Compress PDF",
-    "ocr-pdf":        "🔍  Run OCR",
     "pdf-to-jpg":     "🖼️  Convert to JPG",
     "jpg-to-pdf":     "🗃️  Create PDF",
     "watermark-pdf":  "💧  Apply Watermark",
@@ -1883,7 +1842,7 @@
       const isExtract  = activeMode === "extract-pages";
       const isOrganize = activeMode === "organize-pdf";
       const isCompress = activeMode === "compress-pdf";
-      const isOcr      = activeMode === "ocr-pdf";
+
       const isJpg      = activeMode === "pdf-to-jpg";
       const isImgToPdf  = activeMode === "jpg-to-pdf";
       const isWatermark = activeMode === "watermark-pdf";
@@ -1912,12 +1871,12 @@
       document.getElementById("extractOptions").style.display  = isExtract    ? "block" : "none";
       document.getElementById("removeOptions").style.display   = isRemove     ? "block" : "none";
       document.getElementById("compressOptions").style.display = isCompress   ? "block" : "none";
-      document.getElementById("ocrOptions").style.display      = isOcr        ? "block" : "none";
+
       document.getElementById("jpgOptions").style.display      = isJpg        ? "block" : "none";
 
       // Hide result badges when switching away
       if (!isCompress)  document.getElementById("compressStats").classList.remove("visible");
-      if (!isOcr)       document.getElementById("ocrStats").classList.remove("visible");
+
       if (!isJpg)       document.getElementById("jpgStats").classList.remove("visible");
       if (!isImgToPdf)   document.getElementById("imgStats").classList.remove("visible");
       if (!isWatermark)  document.getElementById("wmStats").classList.remove("visible");
@@ -1993,7 +1952,7 @@
     if (activeMode === "extract-pages"){ doExtractPages(); return; }
     if (activeMode === "organize-pdf") { doOrganize();     return; }
     if (activeMode === "compress-pdf") { doCompress();     return; }
-    if (activeMode === "ocr-pdf")      { doOcr();          return; }
+
     if (activeMode === "pdf-to-jpg")   { doPdfToJpg();     return; }
     if (activeMode === "jpg-to-pdf")   { doImgToPdf();      return; }
     if (activeMode === "watermark-pdf"){ doWatermark();     return; }
@@ -2072,94 +2031,6 @@
     } finally {
       btn.disabled    = false;
       btn.textContent = "⚡  Convert Now";
-      progress.classList.remove("visible");
-    }
-  }
-
-  // ── OCR PDF ───────────────────────────────────────────────────────────────
-  async function doOcr() {
-    if (!selectedFile) {
-      showToast("Please select a PDF file first.", "error"); return;
-    }
-    if (quotaState.conversions_remaining <= 0) {
-      openUpgradeModal(); return;
-    }
-
-    const btn      = document.getElementById("convertBtn");
-    const progress = document.getElementById("progressWrap");
-    const statsEl  = document.getElementById("ocrStats");
-    const lang     = document.getElementById("ocrLang").value;
-
-    btn.disabled    = true;
-    btn.textContent = "Running OCR…";
-    progress.classList.add("visible");
-    statsEl.classList.remove("visible");
-
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
-    if (!csrfToken || csrfToken.includes("csrf_token")) {
-      showToast("Backend not detected. Open from http://127.0.0.1:5000", "error");
-      btn.disabled = false; btn.textContent = BTN_LABELS["ocr-pdf"];
-      progress.classList.remove("visible"); return;
-    }
-
-    const form = new FormData();
-    form.append("file",       selectedFile);
-    form.append("lang",       lang);
-    form.append("csrf_token", csrfToken);
-
-    try {
-      const res = await fetch("/ocr-pdf", {
-        method: "POST", body: form, credentials: "same-origin",
-        headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
-      });
-
-      if (res.status === 402) { await refreshQuota(); openUpgradeModal(); return; }
-      if (res.status === 503) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "OCR is not available on this server.");
-      }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "OCR failed.");
-      }
-
-      const blob      = await res.blob();
-      const ocrd      = res.headers.get("X-Pages-OCRd")    || "?";
-      const skipped   = res.headers.get("X-Pages-Skipped") || "0";
-      const total     = res.headers.get("X-Total-Pages")   || "?";
-      const cd        = res.headers.get("Content-Disposition") || "";
-      const m         = cd.match(/filename="?([^"]+)"?/);
-      const fname     = m ? m[1] : "searchable.pdf";
-
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement("a");
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      // Show OCR summary badge
-      const skippedNum = Number(skipped);
-      let msg = `✅ OCR complete — ${ocrd} page${ocrd !== "1" ? "s" : ""} made searchable`;
-      if (skippedNum > 0) {
-        msg += ` · ${skippedNum} page${skippedNum !== 1 ? "s" : ""} already had text (skipped)`;
-      }
-      msg += `.`;
-      statsEl.textContent = msg;
-      statsEl.classList.add("visible");
-
-      showToast("Done! Searchable PDF downloaded.", "success");
-      await refreshQuota();
-
-    } catch (err) {
-      const msg = (err && err.message) ? err.message : "Request failed.";
-      if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-        showToast("Cannot reach backend. Start Flask first.", "error");
-      } else {
-        showToast("Error: " + msg, "error");
-      }
-    } finally {
-      btn.disabled    = false;
-      btn.textContent = BTN_LABELS["ocr-pdf"];
       progress.classList.remove("visible");
     }
   }
