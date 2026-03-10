@@ -650,14 +650,6 @@
         <div class="mode-check">✓</div>
       </button>
 
-      <button class="mode-btn" data-mode="repair-pdf"
-        style="--color:#d946ef;--light:#fdf4ff">
-        <div class="mode-icon-wrap">🔧</div>
-        <div class="mode-label">Repair PDF</div>
-        <div class="mode-desc">Fix corrupted files</div>
-        <div class="mode-check">✓</div>
-      </button>
-
       <button class="mode-btn" data-mode="ocr-pdf"
         style="--color:#f59e0b;--light:#fffbeb">
         <div class="mode-icon-wrap">🔍</div>
@@ -992,10 +984,6 @@
 
     <!-- Compression result stats (shown after successful compress) -->
     <div class="compress-stats" id="compressStats"></div>
-
-    <!-- Repair result badge (shown after successful repair) -->
-    <div class="compress-stats" id="repairStats"
-         style="background:#fdf4ff;border-color:#e9d5ff;color:#6b21a8;"></div>
 
     <!-- OCR options (shown only when ocr-pdf mode is active) -->
     <div id="ocrOptions" style="display:none; padding: 0 16px 8px;">
@@ -1547,67 +1535,15 @@
 
     <!-- Edit PDF options -->
     <div id="editOptions" style="display:none; padding: 0 16px 12px;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:#8b90a7;
-                  text-transform:uppercase;padding:4px 0 10px;">Text settings</div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-
-        <!-- Text input -->
-        <div class="split-opt-row" style="padding:10px 14px;">
-          <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:6px;">Text to add</label>
-          <textarea id="editText" rows="3" maxlength="500" placeholder="Enter text to add to the PDF…"
-            style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:8px 10px;
-                   font-size:13px;color:#1a1d2e;background:#fff;outline:none;resize:vertical;
-                   font-family:inherit;"></textarea>
-          <div id="editTextCount" style="font-size:11px;color:#9ca3af;margin-top:3px;text-align:right;">0 / 500</div>
-        </div>
-
-        <!-- Position grid -->
-        <div class="split-opt-row" style="padding:10px 14px;">
-          <div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:8px;">Position</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-width:240px;">
-            <label class="wm-pos-btn selected" id="editPosTL" style="justify-content:center;">
-              <input type="radio" name="editPosition" value="tl" checked style="display:none;" />&#8598; Top-L
-            </label>
-            <label class="wm-pos-btn" id="editPosTC" style="justify-content:center;">
-              <input type="radio" name="editPosition" value="tc" style="display:none;" />&#8593; Top-C
-            </label>
-            <label class="wm-pos-btn" id="editPosTR" style="justify-content:center;">
-              <input type="radio" name="editPosition" value="tr" style="display:none;" />&#8599; Top-R
-            </label>
-            <label class="wm-pos-btn" id="editPosBL" style="justify-content:center;">
-              <input type="radio" name="editPosition" value="bl" style="display:none;" />&#8601; Bot-L
-            </label>
-            <label class="wm-pos-btn" id="editPosBC" style="justify-content:center;">
-              <input type="radio" name="editPosition" value="bc" style="display:none;" />&#8595; Bot-C
-            </label>
-            <label class="wm-pos-btn" id="editPosBR" style="justify-content:center;">
-              <input type="radio" name="editPosition" value="br" style="display:none;" />&#8600; Bot-R
-            </label>
-          </div>
-        </div>
-
-        <!-- Pages + Size + Colour row -->
-        <div class="split-opt-row" style="padding:10px 14px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
-          <div style="flex:1;min-width:120px;">
-            <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:6px;">Pages</label>
-            <input type="text" id="editPages" value="all" placeholder="e.g. all, 1-3, 5"
-              style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;
-                     padding:6px 8px;font-size:13px;color:#1a1d2e;outline:none;" />
-          </div>
-          <div style="flex:0 0 68px;">
-            <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:6px;">Size (pt)</label>
-            <input type="number" id="editFontSize" value="12" min="8" max="72"
-              style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;
-                     padding:6px 8px;font-size:13px;color:#1a1d2e;outline:none;text-align:center;" />
-          </div>
-          <div style="flex:0 0 50px;">
-            <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:6px;">Colour</label>
-            <input type="color" id="editColor" value="#000000"
-              style="width:100%;height:34px;border:1.5px solid #d1d5db;border-radius:8px;
-                     padding:2px;cursor:pointer;background:#fff;" />
-          </div>
-        </div>
-
+      <div class="split-opt-row" style="padding:10px 14px;">
+        <p style="font-size:13px;color:#6b7280;margin:0 0 10px;">
+          Upload your PDF then click <strong>Open Editor</strong> to visually place text on the page.
+        </p>
+        <button type="button" id="editOpenPreviewBtn"
+          style="width:100%;padding:10px;border:2px dashed #ea580c;border-radius:10px;
+                 background:#fff7ed;color:#ea580c;font-weight:700;font-size:14px;cursor:pointer;">
+          🖊️ Open PDF Editor Preview
+        </button>
       </div>
     </div>
 
@@ -1639,6 +1575,83 @@
 <div class="toast" id="toast"></div>
 
 <!-- Translate paragraph modal -->
+<!-- Edit PDF Preview Modal -->
+<div class="modal-overlay" id="editPreviewModal">
+  <div style="background:#fff;border-radius:16px;padding:20px;max-width:720px;width:96vw;
+              max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.22);position:relative;">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-weight:700;font-size:16px;color:#1a1d2e;">✏️ Edit PDF — Click to Place Text</div>
+      <button id="editPreviewClose" style="background:none;border:none;font-size:22px;cursor:pointer;color:#8b90a7;line-height:1;">×</button>
+    </div>
+
+    <!-- Page navigation -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <button id="editPagePrev" style="padding:4px 12px;border:1.5px solid #e8eaf0;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;">◀</button>
+      <span id="editPageInfo" style="font-size:13px;color:#6b7280;flex:1;text-align:center;"></span>
+      <button id="editPageNext" style="padding:4px 12px;border:1.5px solid #e8eaf0;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;">▶</button>
+    </div>
+
+    <!-- PDF page preview with click overlay -->
+    <div id="editPreviewContainer" style="position:relative;cursor:crosshair;display:inline-block;
+         width:100%;text-align:center;background:#f3f4f6;border-radius:8px;overflow:hidden;min-height:200px;">
+      <div id="editPreviewSpinner" style="padding:40px;color:#8b90a7;font-size:14px;">Loading preview…</div>
+      <img id="editPreviewImg" style="max-width:100%;display:none;user-select:none;" alt="PDF page preview" />
+      <!-- Placement marker -->
+      <div id="editPlacementMarker" style="display:none;position:absolute;width:18px;height:18px;
+           background:#ea580c;border:2px solid #fff;border-radius:50%;
+           transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+    </div>
+    <div id="editClickHint" style="font-size:12px;color:#8b90a7;margin-top:6px;text-align:center;">
+      👆 Click anywhere on the page to set text placement position
+    </div>
+
+    <!-- Text settings -->
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;align-items:flex-end;">
+      <div style="flex:1;min-width:200px;">
+        <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:5px;">Text to add</label>
+        <textarea id="editModalText" rows="3" maxlength="500"
+          placeholder="Enter text to add to the PDF…"
+          style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:8px 10px;
+                 font-size:13px;color:#1a1d2e;background:#fff;outline:none;resize:vertical;
+                 font-family:inherit;box-sizing:border-box;"></textarea>
+        <div id="editModalTextCount" style="font-size:11px;color:#9ca3af;margin-top:2px;text-align:right;">0 / 500</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:5px;">Size (pt)</label>
+          <input type="number" id="editModalFontSize" value="12" min="8" max="72"
+            style="width:70px;border:1.5px solid #d1d5db;border-radius:8px;padding:6px 8px;
+                   font-size:13px;color:#1a1d2e;outline:none;text-align:center;" />
+        </div>
+        <div>
+          <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:5px;">Colour</label>
+          <input type="color" id="editModalColor" value="#000000"
+            style="width:44px;height:34px;border:1.5px solid #d1d5db;border-radius:8px;
+                   padding:2px;cursor:pointer;background:#fff;" />
+        </div>
+        <div>
+          <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:5px;">Pages</label>
+          <input type="text" id="editModalPages" value="all" placeholder="all, 1-3…"
+            style="width:90px;border:1.5px solid #d1d5db;border-radius:8px;
+                   padding:6px 8px;font-size:13px;color:#1a1d2e;outline:none;" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Apply button -->
+    <button id="editModalApply"
+      style="width:100%;margin-top:14px;padding:12px;border:none;border-radius:10px;
+             background:#ea580c;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">
+      ✏️ Apply & Download
+    </button>
+    <div id="editModalHint" style="font-size:12px;color:#8b90a7;margin-top:6px;text-align:center;">
+      Select a position on the page, enter your text, then click Apply.
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="trModal">
   <div class="modal" style="max-width:540px;width:95%">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -1712,7 +1725,6 @@
     "extract-pages":  ".pdf",
     "organize-pdf":   ".pdf",
     "compress-pdf":   ".pdf",
-    "repair-pdf":     ".pdf",
     "ocr-pdf":        ".pdf",
     "pdf-to-jpg":     ".pdf",
     "jpg-to-pdf":     ".jpg,.jpeg,.png,.webp,.bmp,.gif,.tiff,.tif",
@@ -1736,7 +1748,6 @@
     "extract-pages":  "#6366f1",
     "organize-pdf":   "#14b8a6",
     "compress-pdf":   "#84cc16",
-    "repair-pdf":     "#d946ef",
     "ocr-pdf":        "#f59e0b",
     "pdf-to-jpg":     "#ec4899",
     "jpg-to-pdf":     "#7c3aed",
@@ -1760,7 +1771,6 @@
     "extract-pages":  "📤  Extract Pages",
     "organize-pdf":   "📐  Apply & Download",
     "compress-pdf":   "🗜️  Compress PDF",
-    "repair-pdf":     "🔧  Repair PDF",
     "ocr-pdf":        "🔍  Run OCR",
     "pdf-to-jpg":     "🖼️  Convert to JPG",
     "jpg-to-pdf":     "🗃️  Create PDF",
@@ -1771,7 +1781,7 @@
     "page-numbers":   "🔢  Add Page Numbers",
     "translate-pdf":  "🌐  Translate PDF",
     "sign-pdf":       "✍️  Sign PDF",
-    "edit-pdf":       "✏️  Add Text",
+    "edit-pdf":       "✏️  Open PDF Editor",
   };
 
   let activeMode   = "pdf-to-word";
@@ -1907,7 +1917,6 @@
 
       // Hide result badges when switching away
       if (!isCompress)  document.getElementById("compressStats").classList.remove("visible");
-      if (activeMode !== "repair-pdf") document.getElementById("repairStats").classList.remove("visible");
       if (!isOcr)       document.getElementById("ocrStats").classList.remove("visible");
       if (!isJpg)       document.getElementById("jpgStats").classList.remove("visible");
       if (!isImgToPdf)   document.getElementById("imgStats").classList.remove("visible");
@@ -1984,7 +1993,6 @@
     if (activeMode === "extract-pages"){ doExtractPages(); return; }
     if (activeMode === "organize-pdf") { doOrganize();     return; }
     if (activeMode === "compress-pdf") { doCompress();     return; }
-    if (activeMode === "repair-pdf")   { doRepair();       return; }
     if (activeMode === "ocr-pdf")      { doOcr();          return; }
     if (activeMode === "pdf-to-jpg")   { doPdfToJpg();     return; }
     if (activeMode === "jpg-to-pdf")   { doImgToPdf();      return; }
@@ -2064,87 +2072,6 @@
     } finally {
       btn.disabled    = false;
       btn.textContent = "⚡  Convert Now";
-      progress.classList.remove("visible");
-    }
-  }
-
-  // ── Repair PDF ────────────────────────────────────────────────────────────
-  async function doRepair() {
-    if (!selectedFile) {
-      showToast("Please select a PDF file first.", "error"); return;
-    }
-    if (quotaState.conversions_remaining <= 0) {
-      openUpgradeModal(); return;
-    }
-
-    const btn      = document.getElementById("convertBtn");
-    const progress = document.getElementById("progressWrap");
-    const statsEl  = document.getElementById("repairStats");
-
-    btn.disabled    = true;
-    btn.textContent = "Repairing…";
-    progress.classList.add("visible");
-    statsEl.classList.remove("visible");
-
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
-    if (!csrfToken || csrfToken.includes("csrf_token")) {
-      showToast("Backend not detected. Open from http://127.0.0.1:5000", "error");
-      btn.disabled = false; btn.textContent = BTN_LABELS["repair-pdf"];
-      progress.classList.remove("visible"); return;
-    }
-
-    const form = new FormData();
-    form.append("file",       selectedFile);
-    form.append("csrf_token", csrfToken);
-
-    try {
-      const res = await fetch("/repair-pdf", {
-        method: "POST", body: form, credentials: "same-origin",
-        headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
-      });
-
-      if (res.status === 402) { await refreshQuota(); openUpgradeModal(); return; }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Repair failed.");
-      }
-
-      const blob      = await res.blob();
-      const recovered = res.headers.get("X-Pages-Recovered") || "?";
-      const total     = res.headers.get("X-Total-Pages")     || "?";
-      const cd        = res.headers.get("Content-Disposition") || "";
-      const m         = cd.match(/filename="?([^"]+)"?/);
-      const fname     = m ? m[1] : "repaired.pdf";
-
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement("a");
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      // Show repair summary badge
-      const allOk = recovered === total;
-      statsEl.textContent = allOk
-        ? `✅ Repaired successfully — all ${total} page${total !== "1" ? "s" : ""} recovered.`
-        : `⚠️ Partial recovery — ${recovered} of ${total} pages saved (${Number(total) - Number(recovered)} page${Number(total)-Number(recovered)!==1?"s":""} were unreadable).`;
-      statsEl.classList.add("visible");
-
-      showToast(
-        allOk ? "Done! PDF repaired and downloaded." : `Partial repair: ${recovered}/${total} pages recovered.`,
-        "success"
-      );
-      await refreshQuota();
-
-    } catch (err) {
-      const msg = (err && err.message) ? err.message : "Request failed.";
-      if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-        showToast("Cannot reach backend. Start Flask first.", "error");
-      } else {
-        showToast("Error: " + msg, "error");
-      }
-    } finally {
-      btn.disabled    = false;
-      btn.textContent = BTN_LABELS["repair-pdf"];
       progress.classList.remove("visible");
     }
   }
@@ -4153,97 +4080,179 @@
 
   // ── Edit PDF ──────────────────────────────────────────────────────────────
   (() => {
+    let _editXPct = null;
+    let _editYPct = null;
+    let _editCurrentPage = 0;
+    let _editTotalPages  = 1;
+
+    function _editCloseModal() {
+      document.getElementById("editPreviewModal").classList.remove("open");
+    }
+
+    async function _editLoadPage(pageNum) {
+      if (!selectedFile) return;
+      const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+
+      const img      = document.getElementById("editPreviewImg");
+      const spinner  = document.getElementById("editPreviewSpinner");
+      const marker   = document.getElementById("editPlacementMarker");
+
+      img.style.display     = "none";
+      spinner.style.display = "block";
+      marker.style.display  = "none";
+      _editXPct = null; _editYPct = null;
+
+      const form = new FormData();
+      form.append("file",       selectedFile);
+      form.append("page",       String(pageNum));
+      form.append("csrf_token", csrfToken);
+
+      try {
+        const res  = await fetch("/pdf-page-preview", {
+          method: "POST", body: form, credentials: "same-origin",
+          headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Preview failed.");
+
+        _editCurrentPage = data.page;
+        _editTotalPages  = data.total_pages;
+
+        img.src           = "data:image/jpeg;base64," + data.image;
+        img.style.display = "block";
+        spinner.style.display = "none";
+
+        document.getElementById("editPageInfo").textContent =
+          "Page " + (_editCurrentPage + 1) + " of " + _editTotalPages;
+        document.getElementById("editPagePrev").disabled = _editCurrentPage === 0;
+        document.getElementById("editPageNext").disabled = _editCurrentPage >= _editTotalPages - 1;
+
+      } catch (e) {
+        spinner.textContent = "Failed to load preview: " + e.message;
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
-      const ta    = document.getElementById("editText");
-      const count = document.getElementById("editTextCount");
+      // Text counter
+      const ta    = document.getElementById("editModalText");
+      const count = document.getElementById("editModalTextCount");
       ta.addEventListener("input", () => { count.textContent = ta.value.length + " / 500"; });
 
-      document.querySelectorAll('input[name="editPosition"]').forEach(radio => {
-        radio.addEventListener("change", () => {
-          document.querySelectorAll('label[id^="editPos"]').forEach(l => l.classList.remove("selected"));
-          radio.parentElement.classList.add("selected");
-        });
+      // Open preview modal
+      document.getElementById("editOpenPreviewBtn").addEventListener("click", async () => {
+        if (!selectedFile) { showToast("Please upload a PDF first.", "error"); return; }
+        document.getElementById("editPreviewModal").classList.add("open");
+        _editCurrentPage = 0;
+        await _editLoadPage(0);
+      });
+
+      // Page navigation
+      document.getElementById("editPagePrev").addEventListener("click", async () => {
+        if (_editCurrentPage > 0) await _editLoadPage(_editCurrentPage - 1);
+      });
+      document.getElementById("editPageNext").addEventListener("click", async () => {
+        if (_editCurrentPage < _editTotalPages - 1) await _editLoadPage(_editCurrentPage + 1);
+      });
+
+      // Click on image to set placement position
+      document.getElementById("editPreviewContainer").addEventListener("click", (e) => {
+        const img = document.getElementById("editPreviewImg");
+        if (img.style.display === "none") return;
+        const rect = img.getBoundingClientRect();
+        const x    = e.clientX - rect.left;
+        const y    = e.clientY - rect.top;
+        _editXPct  = (x / rect.width)  * 100;
+        _editYPct  = (y / rect.height) * 100;
+
+        // Show marker at click position (relative to container)
+        const container = document.getElementById("editPreviewContainer");
+        const cr        = container.getBoundingClientRect();
+        const marker    = document.getElementById("editPlacementMarker");
+        marker.style.left    = (e.clientX - cr.left) + "px";
+        marker.style.top     = (e.clientY - cr.top)  + "px";
+        marker.style.display = "block";
+
+        document.getElementById("editClickHint").textContent =
+          "✅ Position set — now enter your text and click Apply.";
+      });
+
+      // Close modal
+      document.getElementById("editPreviewClose").addEventListener("click", _editCloseModal);
+      document.getElementById("editPreviewModal").addEventListener("click", e => {
+        if (e.target === document.getElementById("editPreviewModal")) _editCloseModal();
+      });
+
+      // Apply button inside modal
+      document.getElementById("editModalApply").addEventListener("click", async () => {
+        const text = document.getElementById("editModalText").value.trim();
+        if (!text)    { showToast("Please enter some text.", "error"); return; }
+        if (_editXPct === null) { showToast("Please click on the page to set placement position.", "error"); return; }
+        if (quotaState.conversions_remaining <= 0) { openUpgradeModal(); return; }
+
+        const csrfToken  = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+        const fontSize   = document.getElementById("editModalFontSize").value || "12";
+        const color      = document.getElementById("editModalColor").value.replace("#", "");
+        const pages      = document.getElementById("editModalPages").value || "all";
+        const applyBtn   = document.getElementById("editModalApply");
+        const statsEl    = document.getElementById("editStats");
+
+        applyBtn.disabled = true; applyBtn.textContent = "Applying…";
+
+        const form = new FormData();
+        form.append("file",       selectedFile);
+        form.append("text",       text);
+        form.append("x_pct",      String(_editXPct));
+        form.append("y_pct",      String(_editYPct));
+        form.append("pages",      pages);
+        form.append("font_size",  fontSize);
+        form.append("color",      color);
+        form.append("csrf_token", csrfToken);
+
+        try {
+          const res = await fetch("/edit-pdf", {
+            method: "POST", body: form, credentials: "same-origin",
+            headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
+          });
+
+          if (res.status === 402) { await refreshQuota(); openUpgradeModal(); return; }
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Failed to edit PDF.");
+          }
+
+          const blob   = await res.blob();
+          const edited = res.headers.get("X-Pages-Edited") || "?";
+          const total  = res.headers.get("X-Total-Pages")  || "?";
+          const cd     = res.headers.get("Content-Disposition") || "";
+          const m      = cd.match(/filename="?([^"]+)"?/);
+          const fname  = m ? m[1] : "edited.pdf";
+
+          const url = URL.createObjectURL(blob);
+          const a   = document.createElement("a");
+          a.href = url; a.download = fname;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          statsEl.textContent = "✅ Text added to " + edited + " of " + total + " page(s).";
+          statsEl.classList.add("visible");
+          showToast("Done! Edited PDF downloaded.", "success");
+          await refreshQuota();
+          _editCloseModal();
+
+        } catch (err) {
+          const msg = (err && err.message) ? err.message : "Request failed.";
+          showToast("Error: " + msg, "error");
+        } finally {
+          applyBtn.disabled = false; applyBtn.textContent = "✏️ Apply & Download";
+        }
       });
     });
   })();
 
-  async function doEditPdf() {
-    if (!selectedFile) { showToast("Please select a PDF file first.", "error"); return; }
-    if (quotaState.conversions_remaining <= 0) { openUpgradeModal(); return; }
-
-    const text     = document.getElementById("editText").value.trim();
-    if (!text) { showToast("Please enter some text to add.", "error"); return; }
-
-    const position = document.querySelector('input[name="editPosition"]:checked').value;
-    const pages    = document.getElementById("editPages").value    || "all";
-    const fontSize = document.getElementById("editFontSize").value || "12";
-    const color    = document.getElementById("editColor").value.replace("#", "");
-
-    const btn      = document.getElementById("convertBtn");
-    const progress = document.getElementById("progressWrap");
-    const statsEl  = document.getElementById("editStats");
-
-    btn.disabled = true; btn.textContent = "Editing…";
-    progress.classList.add("visible");
-    statsEl.classList.remove("visible");
-
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
-    if (!csrfToken || csrfToken.includes("csrf_token")) {
-      showToast("Backend not detected. Open from http://127.0.0.1:5000", "error");
-      btn.disabled = false; btn.textContent = BTN_LABELS["edit-pdf"];
-      progress.classList.remove("visible"); return;
-    }
-
-    const form = new FormData();
-    form.append("file",       selectedFile);
-    form.append("text",       text);
-    form.append("position",   position);
-    form.append("pages",      pages);
-    form.append("font_size",  fontSize);
-    form.append("color",      color);
-    form.append("csrf_token", csrfToken);
-
-    try {
-      const res = await fetch("/edit-pdf", {
-        method: "POST", body: form, credentials: "same-origin",
-        headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
-      });
-
-      if (res.status === 402) { await refreshQuota(); openUpgradeModal(); return; }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to edit PDF.");
-      }
-
-      const blob   = await res.blob();
-      const edited = res.headers.get("X-Pages-Edited") || "?";
-      const total  = res.headers.get("X-Total-Pages")  || "?";
-      const cd     = res.headers.get("Content-Disposition") || "";
-      const m      = cd.match(/filename="?([^"]+)"?/);
-      const fname  = m ? m[1] : "edited.pdf";
-
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement("a");
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      statsEl.textContent = "✅ Text added to " + edited + " of " + total + " page(s).";
-      statsEl.classList.add("visible");
-      showToast("Done! Edited PDF downloaded.", "success");
-      await refreshQuota();
-
-    } catch (err) {
-      const msg = (err && err.message) ? err.message : "Request failed.";
-      if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-        showToast("Cannot reach backend. Start Flask first.", "error");
-      } else {
-        showToast("Error: " + msg, "error");
-      }
-    } finally {
-      btn.disabled = false; btn.textContent = BTN_LABELS["edit-pdf"];
-      progress.classList.remove("visible");
-    }
+  // doEditPdf is now just an alias that opens the preview modal
+  function doEditPdf() {
+    if (!selectedFile) { showToast("Please upload a PDF file first.", "error"); return; }
+    document.getElementById("editOpenPreviewBtn").click();
   }
 
   // ── PayPal checkout ───────────────────────────────────────────────────────

@@ -1157,149 +1157,6 @@ def compress_pdf_route():
     return response
 
 
-# ── Repair PDF route ───────────────────────────────────────────────────────
-
-@app.route("/repair-pdf", methods=["POST"])
-@limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
-def repair_pdf_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
-
-    if conversions_used >= conversions_budget:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
-        }), 402
-
-    # ── Validate file (lenient — no magic-byte check for repair) ───────────
-    # The user is sending us a *broken* PDF, so the header may be corrupted.
-    file = request.files.get("file")
-    if not file or file.filename == "":
-        return jsonify({"error": "No file provided."}), 400
-
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext != ".pdf":
-        return jsonify({"error": "Please upload a PDF file (.pdf)."}), 400
-
-    file.seek(0, 2)
-    size = file.tell()
-    file.seek(0)
-    if size == 0:
-        return jsonify({"error": "File is empty."}), 400
-    if size > app.config["MAX_FILE_SIZE"]:
-        return jsonify({
-            "error": f"File too large. Maximum size is {app.config['MAX_FILE_SIZE'] // (1024 * 1024)} MB."
-        }), 400
-
-    # ── Save source file ───────────────────────────────────────────────────
-    uid       = str(uuid.uuid4())
-    safe_name = os.path.basename(file.filename)
-    src_path  = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_{safe_name}")
-    out_path  = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_repaired.pdf")
-    file.save(src_path)
-
-    recovered_pages = 0
-    total_pages     = 0
-
-    try:
-        import fitz
-
-        # PyMuPDF (MuPDF) automatically attempts structural repair when opening.
-        # If the standard open fails, fall back to loading from raw bytes.
-        try:
-            doc = fitz.open(src_path)
-        except Exception as open_err:
-            logger.warning("Standard PDF open failed (%s); retrying from raw bytes.", open_err)
-            with open(src_path, "rb") as fh:
-                raw = fh.read()
-            doc = fitz.open("pdf", raw)   # MuPDF re-attempts repair from memory
-
-        total_pages = doc.page_count
-        if total_pages == 0:
-            doc.close()
-            return jsonify({"error": "PDF has no pages or is completely unreadable."}), 400
-
-        # Rebuild the document page by page.
-        # Skipping any page that MuPDF cannot load lets us salvage partial files.
-        new_doc = fitz.open()
-        for i in range(total_pages):
-            try:
-                new_doc.insert_pdf(doc, from_page=i, to_page=i)
-                recovered_pages += 1
-            except Exception as page_err:
-                logger.warning("Repair: skipped page %d — %s", i + 1, page_err)
-
-        doc.close()
-
-        if recovered_pages == 0:
-            new_doc.close()
-            return jsonify({"error": "No pages could be recovered from this PDF."}), 400
-
-        # Save with full structural cleanup — this IS the "repair"
-        new_doc.save(
-            out_path,
-            garbage=4,
-            deflate=True,
-            deflate_images=True,
-            deflate_fonts=True,
-            clean=True,
-            incremental=False,
-        )
-        new_doc.close()
-
-        logger.info(
-            "Repair PDF: %d/%d pages recovered from %s",
-            recovered_pages, total_pages, safe_name,
-        )
-
-    except Exception as exc:
-        logger.error("Repair PDF error: %s", exc, exc_info=True)
-        if os.path.exists(out_path):
-            try:
-                os.remove(out_path)
-            except Exception:
-                pass
-        return jsonify({
-            "error": "Could not read or repair this PDF. "
-                     "The file may be too severely damaged or encrypted."
-        }), 500
-    finally:
-        if os.path.exists(src_path):
-            try:
-                os.remove(src_path)
-            except Exception:
-                pass
-
-    if not os.path.exists(out_path):
-        return jsonify({"error": "Repair produced no output. Please try again."}), 500
-
-    # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
-
-    base_name     = os.path.splitext(safe_name)[0]
-    download_name = f"{base_name}_repaired.pdf"
-
-    @after_this_request
-    def remove_output(response):
-        try:
-            if os.path.exists(out_path):
-                os.remove(out_path)
-        except Exception:
-            pass
-        return response
-
-    response = send_file(out_path, as_attachment=True, download_name=download_name)
-    response.headers["X-Pages-Recovered"] = str(recovered_pages)
-    response.headers["X-Total-Pages"]     = str(total_pages)
-    response.headers["Access-Control-Expose-Headers"] = "X-Pages-Recovered, X-Total-Pages"
-    return response
-
-
 # ── Organize PDF routes ────────────────────────────────────────────────────
 
 @app.route("/organize-pdf/preview", methods=["POST"])
@@ -2765,7 +2622,7 @@ _MYMEMORY_LANG_CODE = {
     "Indonesian": "id", "Vietnamese": "vi",
 }
 
-def _mymemory_translate(text, target_code, chunk_size=480):
+def _mymemory_translate(text, target_code, chunk_size=480, src_code="en"):
     """Translate text via MyMemory free API (no key required)."""
     if not text.strip():
         return text
@@ -2774,7 +2631,7 @@ def _mymemory_translate(text, target_code, chunk_size=480):
     for part in parts:
         resp = _requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": part, "langpair": f"auto|{target_code}"},
+            params={"q": part, "langpair": f"{src_code}|{target_code}"},
             timeout=30,
         )
         resp.raise_for_status()
@@ -2823,6 +2680,7 @@ def extract_pdf_paragraphs():
                             f"{uid}_{os.path.basename(file.filename)}")
     file.save(src_path)
     try:
+        import fitz
         doc        = fitz.open(src_path)
         paragraphs = []
         for page_num in range(len(doc)):
@@ -2900,7 +2758,7 @@ def translate_pdf_route():
 
     total_pages = 0
     try:
-        import fitz, anthropic as _anthropic
+        import fitz
 
         doc = fitz.open(src_path)
         total_pages = doc.page_count
@@ -3192,6 +3050,74 @@ def sign_pdf_route():
     return response
 
 
+# ── PDF Page Preview (for edit-pdf visual placement) ──────────────────────
+
+@app.route("/pdf-page-preview", methods=["POST"])
+@limiter.limit("30 per minute")
+def pdf_page_preview():
+    """Render a single PDF page to JPEG and return it as base64.
+    Does NOT consume a quota slot — only used for the edit-pdf UI preview."""
+    file = request.files.get("file")
+    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    header = file.read(8)
+    file.seek(0)
+    if not header.startswith(b"%PDF"):
+        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
+
+    try:
+        page_num = max(0, int(request.form.get("page", "0")))
+    except (ValueError, TypeError):
+        page_num = 0
+
+    uid      = str(uuid.uuid4())
+    src_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_editpreview.pdf")
+    file.save(src_path)
+
+    try:
+        import fitz, base64 as _b64
+
+        doc         = fitz.open(src_path)
+        total_pages = doc.page_count
+
+        if total_pages == 0:
+            doc.close()
+            return jsonify({"error": "PDF has no pages."}), 400
+
+        page_num = min(page_num, total_pages - 1)
+        page     = doc.load_page(page_num)
+        page_w   = page.rect.width
+        page_h   = page.rect.height
+
+        mat = fitz.Matrix(1.5, 1.5)
+        pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
+        try:
+            img_bytes = pix.tobytes("jpeg", jpg_quality=80)
+        except Exception:
+            img_bytes = pix.tobytes("png")
+        doc.close()
+
+    except Exception as exc:
+        logger.error("PDF page preview error: %s", exc, exc_info=True)
+        return jsonify({"error": "Failed to render page preview."}), 500
+    finally:
+        if os.path.exists(src_path):
+            try:
+                os.remove(src_path)
+            except Exception:
+                pass
+
+    return jsonify({
+        "image":       _b64.b64encode(img_bytes).decode(),
+        "page":        page_num,
+        "total_pages": total_pages,
+        "page_width":  page_w,
+        "page_height": page_h,
+    })
+
+
 # ── Edit PDF ───────────────────────────────────────────────────────────────
 
 @app.route("/edit-pdf", methods=["POST"])
@@ -3225,6 +3151,15 @@ def edit_pdf_route():
     position = request.form.get("position", "tl")
     if position not in {"tl", "tc", "tr", "bl", "bc", "br"}:
         position = "tl"
+
+    # Coordinate-based placement (from visual preview click)
+    try:
+        x_pct = float(request.form.get("x_pct", ""))
+        y_pct = float(request.form.get("y_pct", ""))
+        use_coords = 0.0 <= x_pct <= 100.0 and 0.0 <= y_pct <= 100.0
+    except (ValueError, TypeError):
+        x_pct = y_pct = 0.0
+        use_coords = False
 
     pages_str = request.form.get("pages", "all").strip()
     try:
@@ -3270,8 +3205,7 @@ def edit_pdf_route():
         lines  = text.split("\n")
         line_h = font_size * 1.4
 
-        target_set = set(target_indices)
-        row, col   = position[0], position[1]
+        row, col  = position[0], position[1]
 
         helv_font = fitz.Font("helv")
         # Pre-measure all line widths with a local font instance
@@ -3286,16 +3220,20 @@ def edit_pdf_route():
             tw = fitz.TextWriter(page.rect)
 
             for j, line in enumerate(lines):
-                lw = line_widths[j]
-
-                if   col == "l": lx = margin
-                elif col == "r": lx = pw - lw - margin
-                else:            lx = (pw - lw) / 2
-
-                if row == "t":
-                    ly = margin + font_size + j * line_h
+                if use_coords:
+                    # Click-based placement: x_pct/y_pct are percentage of page dims
+                    lx = (x_pct / 100.0) * pw
+                    ly = (y_pct / 100.0) * ph + font_size + j * line_h
                 else:
-                    ly = ph - margin - (len(lines) - 1 - j) * line_h
+                    lw = line_widths[j]
+                    if   col == "l": lx = margin
+                    elif col == "r": lx = pw - lw - margin
+                    else:            lx = (pw - lw) / 2
+
+                    if row == "t":
+                        ly = margin + font_size + j * line_h
+                    else:
+                        ly = ph - margin - (len(lines) - 1 - j) * line_h
 
                 if line:
                     tw.append(fitz.Point(lx, ly), line, font=helv_font, fontsize=font_size)
@@ -3305,7 +3243,8 @@ def edit_pdf_route():
 
         doc.save(out_path, garbage=4, deflate=True)
         doc.close()
-        logger.info("Edit PDF: %d pages edited, pos=%s, uid=%s", edited_count, position, uid)
+        logger.info("Edit PDF: %d pages edited, coords=%s, pos=%s, uid=%s",
+                    edited_count, use_coords, position, uid)
 
     except Exception as exc:
         logger.error("Edit PDF error: %s", exc, exc_info=True)
