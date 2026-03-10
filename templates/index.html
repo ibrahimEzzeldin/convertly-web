@@ -1356,46 +1356,15 @@
 
     <!-- Translate PDF options -->
     <div id="translateOptions" style="display:none; padding: 0 16px 12px;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:#8b90a7;
-                  text-transform:uppercase;padding:4px 0 10px;">Translation settings</div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-
-        <div class="split-opt-row" style="padding:10px 14px;">
-          <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:6px;">Translate to</label>
-          <select id="translateTargetLang"
-            style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:7px 10px;
-                   font-size:13px;color:#1a1d2e;background:#fff;outline:none;">
-            <option>English</option>
-            <option>Arabic</option>
-            <option>French</option>
-            <option>Spanish</option>
-            <option>German</option>
-            <option>Italian</option>
-            <option>Portuguese</option>
-            <option>Russian</option>
-            <option>Chinese (Simplified)</option>
-            <option>Chinese (Traditional)</option>
-            <option>Japanese</option>
-            <option>Korean</option>
-            <option>Turkish</option>
-            <option>Dutch</option>
-            <option>Polish</option>
-            <option>Hindi</option>
-            <option>Ukrainian</option>
-            <option>Swedish</option>
-            <option>Norwegian</option>
-            <option>Danish</option>
-            <option>Greek</option>
-            <option>Hebrew</option>
-            <option>Indonesian</option>
-            <option>Vietnamese</option>
-          </select>
-        </div>
-
-        <div style="font-size:11px;color:#9ca3af;padding:0 4px;">
-          ℹ️ Text-based PDFs only · Max 25 pages
-        </div>
-
+      <div class="split-opt-row" style="padding:10px 14px;">
+        <p style="font-size:13px;color:#6b7280;margin:0 0 10px;">
+          Upload your PDF then click <strong>Open Translator</strong> to translate the full document or select specific text to translate.
+        </p>
+        <button type="button" id="trOpenModalBtn"
+          style="width:100%;padding:10px;border:none;border-radius:8px;background:#8b5cf6;
+                 color:#fff;font-weight:700;font-size:13px;cursor:pointer;">
+          🌐 Open Translator
+        </button>
       </div>
     </div>
 
@@ -1614,25 +1583,115 @@
   </div>
 </div>
 
+<!-- Translate PDF modal -->
 <div class="modal-overlay" id="trModal">
-  <div class="modal" style="max-width:540px;width:95%">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-weight:700;font-size:16px;color:#1a1d2e">🌐 Translate PDF</div>
-      <button id="trDoneBtn" style="background:none;border:none;font-size:20px;cursor:pointer;color:#8b90a7;line-height:1">×</button>
+  <div class="modal" style="max-width:820px;width:96%;padding:24px;max-height:90vh;overflow-y:auto;">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:17px;color:#1a1d2e;">🌐 Translate PDF</div>
+      <button id="trCloseBtn" style="background:none;border:none;font-size:22px;cursor:pointer;color:#8b90a7;line-height:1;">×</button>
     </div>
-    <div id="trCounter" style="font-size:12px;color:#8b90a7;margin-bottom:12px"></div>
 
-    <div style="font-size:11px;font-weight:600;color:#6366f1;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Original</div>
-    <div id="trSource" style="background:#f5f3ff;border:1.5px solid #6366f1;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;max-height:180px;overflow-y:auto;white-space:pre-wrap;margin-bottom:12px"></div>
-
-    <button id="trTranslateBtn" style="width:100%;padding:10px;border:none;border-radius:8px;background:#6366f1;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">🌐 Translate this</button>
-
-    <div id="trResult" style="display:none;background:#f0fdf4;border:1.5px solid #22c55e;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;max-height:180px;overflow-y:auto;white-space:pre-wrap;margin-top:12px"></div>
-
-    <div id="trNavRow" style="display:none;gap:8px;justify-content:flex-end;margin-top:14px">
-      <button id="trDoneBtnB" style="padding:8px 18px;border-radius:8px;border:1.5px solid #e8eaf0;background:#fff;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer;">I'm done</button>
-      <button id="trNextBtn" style="padding:8px 18px;border-radius:8px;border:none;background:#1a1d2e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Next paragraph →</button>
+    <!-- Language selector + tab switcher -->
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+      <label style="font-size:13px;font-weight:600;color:#6b7280;">Translate to:</label>
+      <select id="trModalLang"
+        style="border:1.5px solid #d1d5db;border-radius:8px;padding:6px 10px;font-size:13px;
+               color:#1a1d2e;background:#fff;outline:none;">
+        <option>English</option><option>Arabic</option><option>French</option>
+        <option>Spanish</option><option>German</option><option>Italian</option>
+        <option>Portuguese</option><option>Russian</option>
+        <option>Chinese (Simplified)</option><option>Chinese (Traditional)</option>
+        <option>Japanese</option><option>Korean</option><option>Turkish</option>
+        <option>Dutch</option><option>Polish</option><option>Hindi</option>
+        <option>Ukrainian</option><option>Swedish</option><option>Norwegian</option>
+        <option>Danish</option><option>Greek</option><option>Hebrew</option>
+        <option>Indonesian</option><option>Vietnamese</option>
+      </select>
+      <div style="margin-left:auto;display:flex;gap:6px;">
+        <button id="trTabDoc" type="button"
+          style="padding:7px 14px;border-radius:7px;border:1.5px solid #8b5cf6;
+                 background:#8b5cf6;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">
+          📄 Full Document
+        </button>
+        <button id="trTabHighlight" type="button"
+          style="padding:7px 14px;border-radius:7px;border:1.5px solid #d1d5db;
+                 background:#fff;color:#6b7280;font-size:12px;font-weight:700;cursor:pointer;">
+          ✂️ Highlight Selection
+        </button>
+      </div>
     </div>
+
+    <!-- Full Document Panel -->
+    <div id="trPanelDoc">
+      <p style="font-size:13px;color:#6b7280;margin:0 0 14px;">
+        Translates the entire PDF and downloads the result as a new PDF. Works on text-based PDFs only · max 25 pages.
+      </p>
+      <button id="trDownloadBtn" type="button"
+        style="width:100%;padding:12px;border:none;border-radius:8px;background:#8b5cf6;
+               color:#fff;font-weight:700;font-size:14px;cursor:pointer;">
+        🌐 Translate &amp; Download PDF
+      </button>
+      <div id="trDocStatus" style="margin-top:10px;font-size:13px;color:#6b7280;text-align:center;"></div>
+    </div>
+
+    <!-- Highlight Selection Panel -->
+    <div id="trPanelHighlight" style="display:none;">
+      <p style="font-size:13px;color:#6b7280;margin:0 0 10px;">
+        Drag on the page below to highlight the text you want to translate, then click <strong>Translate Selected</strong>.
+      </p>
+      <!-- Page preview + canvas overlay -->
+      <div id="trPreviewWrap"
+        style="position:relative;display:block;max-width:100%;user-select:none;
+               border:1.5px solid #e8eaf0;border-radius:8px;overflow:hidden;background:#f9fafb;">
+        <img id="trPageImg" style="display:block;width:100%;height:auto;" alt="PDF page" />
+        <canvas id="trHighlightCanvas"
+          style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair;"></canvas>
+        <div id="trPageLoading"
+          style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                 background:rgba(255,255,255,.8);font-size:14px;color:#8b90a7;">
+          Loading page…
+        </div>
+      </div>
+      <!-- Page navigation -->
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+        <button id="trPrevPageBtn" type="button"
+          style="padding:5px 12px;border:1.5px solid #e8eaf0;border-radius:6px;
+                 background:#fff;cursor:pointer;font-size:13px;">← Prev</button>
+        <span id="trPageInfo" style="font-size:13px;color:#6b7280;">Page 1 of 1</span>
+        <button id="trNextPageBtn" type="button"
+          style="padding:5px 12px;border:1.5px solid #e8eaf0;border-radius:6px;
+                 background:#fff;cursor:pointer;font-size:13px;">Next →</button>
+        <button id="trClearSelBtn" type="button"
+          style="margin-left:auto;padding:5px 12px;border:1.5px solid #e8eaf0;
+                 border-radius:6px;background:#fff;font-size:13px;cursor:pointer;">
+          Clear selection
+        </button>
+      </div>
+      <!-- Translate selected button -->
+      <button id="trTranslateSelBtn" type="button" disabled
+        style="width:100%;margin-top:12px;padding:11px;border:none;border-radius:8px;
+               background:#8b5cf6;color:#fff;font-weight:700;font-size:14px;
+               cursor:pointer;opacity:.5;">
+        🌐 Translate Selected
+      </button>
+      <!-- Result box -->
+      <div id="trHighlightResult"
+        style="display:none;margin-top:12px;background:#f5f3ff;border:1.5px solid #8b5cf6;
+               border-radius:8px;padding:14px;">
+        <div style="font-size:11px;font-weight:700;color:#8b5cf6;text-transform:uppercase;
+                    letter-spacing:.5px;margin-bottom:6px;">Translation</div>
+        <div id="trHighlightResultText"
+          style="font-size:14px;line-height:1.7;color:#1a1d2e;white-space:pre-wrap;"></div>
+        <button id="trCopyResultBtn" type="button"
+          style="margin-top:10px;padding:5px 14px;border:1.5px solid #8b5cf6;border-radius:6px;
+                 background:#fff;color:#8b5cf6;font-size:12px;font-weight:600;cursor:pointer;">
+          Copy
+        </button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -3670,100 +3729,264 @@
   }
 
   // ── Translate PDF ────────────────────────────────────────────────────────
-  let _trParagraphs = [], _trIndex = 0, _trLang = "";
+  (() => {
+    let _trFile = null, _trTotalPages = 1, _trCurPage = 0;
+    let _trSelPct = null;   // {x0_pct, y0_pct, x1_pct, y1_pct}
 
-  async function doTranslate() {
-    if (!selectedFile) { showToast("Please select a PDF file first.", "error"); return; }
+    function trClose() {
+      document.getElementById("trModal").classList.remove("open");
+      _trFile = null; _trSelPct = null;
+    }
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
-    _trLang      = document.getElementById("translateTargetLang").value;
-    const btn    = document.getElementById("convertBtn");
-    const prog   = document.getElementById("progressWrap");
+    function trSwitchTab(tab) {
+      const isDoc = tab === "doc";
+      document.getElementById("trPanelDoc").style.display       = isDoc ? ""     : "none";
+      document.getElementById("trPanelHighlight").style.display = isDoc ? "none" : "";
+      document.getElementById("trTabDoc").style.background      = isDoc ? "#8b5cf6" : "#fff";
+      document.getElementById("trTabDoc").style.color           = isDoc ? "#fff"    : "#6b7280";
+      document.getElementById("trTabDoc").style.borderColor     = isDoc ? "#8b5cf6" : "#d1d5db";
+      document.getElementById("trTabHighlight").style.background = isDoc ? "#fff"    : "#8b5cf6";
+      document.getElementById("trTabHighlight").style.color      = isDoc ? "#6b7280" : "#fff";
+      document.getElementById("trTabHighlight").style.borderColor = isDoc ? "#d1d5db" : "#8b5cf6";
+      if (!isDoc && _trFile) _trLoadPage(_trCurPage);
+    }
 
-    btn.disabled = true; btn.textContent = "Extracting…";
-    prog.classList.add("visible");
+    async function _trLoadPage(pageNum) {
+      const loading = document.getElementById("trPageLoading");
+      const canvas  = document.getElementById("trHighlightCanvas");
+      loading.style.display = "flex";
+      _trSelPct = null;
+      _trClearCanvas();
+      const btn  = document.getElementById("trTranslateSelBtn");
+      btn.disabled = true; btn.style.opacity = ".5";
 
-    try {
-      const form = new FormData();
-      form.append("file", selectedFile);
-      form.append("csrf_token", csrfToken);
+      const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+      const fd   = new FormData();
+      fd.append("file", _trFile);
+      fd.append("page", String(pageNum));
+      fd.append("csrf_token", csrf);
+      try {
+        const res  = await fetch("/pdf-page-preview", {
+          method: "POST", body: fd, credentials: "same-origin",
+          headers: { "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to load page.");
+        const img     = document.getElementById("trPageImg");
+        img.src       = "data:image/jpeg;base64," + data.image;
+        _trTotalPages = data.total_pages;
+        _trCurPage    = pageNum;
+        document.getElementById("trPageInfo").textContent =
+          "Page " + (pageNum + 1) + " of " + data.total_pages;
+        img.onload = () => {
+          canvas.width  = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+        };
+      } catch (err) {
+        showToast("Error loading page: " + err.message, "error");
+      } finally {
+        loading.style.display = "none";
+      }
+    }
 
-      const res  = await fetch("/extract-pdf-paragraphs", {
-        method: "POST", body: form, credentials: "same-origin",
-        headers: { "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
+    function _trClearCanvas() {
+      const canvas = document.getElementById("trHighlightCanvas");
+      const ctx    = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      _trSelPct = null;
+      const btn = document.getElementById("trTranslateSelBtn");
+      btn.disabled = true; btn.style.opacity = ".5";
+    }
+
+    function _trDrawSel(canvas, x0, y0, x1, y1) {
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle   = "rgba(139,92,246,0.25)";
+      ctx.strokeStyle = "#8b5cf6";
+      ctx.lineWidth   = 2;
+      const rx = Math.min(x0, x1), ry = Math.min(y0, y1);
+      const rw = Math.abs(x1 - x0),  rh = Math.abs(y1 - y0);
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
+    }
+
+    // Canvas drag-to-select (runs once after DOM ready)
+    function _initCanvas() {
+      const canvas = document.getElementById("trHighlightCanvas");
+      let dragging = false, startX = 0, startY = 0;
+
+      function canvasPos(e) {
+        const r     = canvas.getBoundingClientRect();
+        const touch = e.touches ? e.touches[0] : e;
+        return {
+          x: (touch.clientX - r.left) * (canvas.width  / r.width),
+          y: (touch.clientY - r.top)  * (canvas.height / r.height),
+        };
+      }
+
+      function finishDrag(ex, ey) {
+        const x0 = Math.min(startX, ex), x1 = Math.max(startX, ex);
+        const y0 = Math.min(startY, ey), y1 = Math.max(startY, ey);
+        if (Math.abs(x1 - x0) < 5 || Math.abs(y1 - y0) < 5) { _trClearCanvas(); return; }
+        _trSelPct = {
+          x0_pct: x0 / canvas.width  * 100,
+          y0_pct: y0 / canvas.height * 100,
+          x1_pct: x1 / canvas.width  * 100,
+          y1_pct: y1 / canvas.height * 100,
+        };
+        const btn = document.getElementById("trTranslateSelBtn");
+        btn.disabled = false; btn.style.opacity = "1";
+      }
+
+      canvas.addEventListener("mousedown", e => {
+        dragging = true;
+        const p = canvasPos(e); startX = p.x; startY = p.y;
+        e.preventDefault();
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to extract text.");
+      canvas.addEventListener("mousemove", e => {
+        if (!dragging) return;
+        const p = canvasPos(e);
+        _trDrawSel(canvas, startX, startY, p.x, p.y);
+        e.preventDefault();
+      });
+      canvas.addEventListener("mouseup", e => {
+        if (!dragging) return;
+        dragging = false;
+        const p = canvasPos(e);
+        _trDrawSel(canvas, startX, startY, p.x, p.y);
+        finishDrag(p.x, p.y);
+        e.preventDefault();
+      });
+      canvas.addEventListener("mouseleave", e => {
+        if (!dragging) return;
+        dragging = false;
+        const p = canvasPos(e);
+        finishDrag(p.x, p.y);
+      });
+    }
 
-      _trParagraphs = data.paragraphs;
-      _trIndex      = 0;
-      _trShowParagraph();
+    async function trTranslateHighlight() {
+      if (!_trSelPct || !_trFile) return;
+      const lang = document.getElementById("trModalLang").value;
+      const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+      const btn  = document.getElementById("trTranslateSelBtn");
+      btn.disabled = true; btn.textContent = "Extracting…";
+      try {
+        // Step 1: extract text from selected region
+        const fd = new FormData();
+        fd.append("file", _trFile);
+        fd.append("regions", JSON.stringify([{
+          page: _trCurPage,
+          x0_pct: _trSelPct.x0_pct, y0_pct: _trSelPct.y0_pct,
+          x1_pct: _trSelPct.x1_pct, y1_pct: _trSelPct.y1_pct,
+        }]));
+        fd.append("csrf_token", csrf);
+        const r1  = await fetch("/extract-text-region", {
+          method: "POST", body: fd, credentials: "same-origin",
+          headers: { "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
+        });
+        const d1  = await r1.json();
+        if (!r1.ok) throw new Error(d1.error || "Failed to extract text.");
+
+        // Step 2: translate the extracted text
+        btn.textContent = "Translating…";
+        const r2  = await fetch("/translate-chunk", {
+          method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json",
+                     "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
+          body: JSON.stringify({ text: d1.text, target_lang: lang, csrf_token: csrf }),
+        });
+        const d2  = await r2.json();
+        if (!r2.ok) throw new Error(d2.error || "Translation failed.");
+
+        document.getElementById("trHighlightResultText").textContent = d2.translated;
+        document.getElementById("trHighlightResult").style.display = "";
+      } catch (err) {
+        showToast("Error: " + err.message, "error");
+      } finally {
+        btn.disabled = false; btn.textContent = "🌐 Translate Selected";
+        btn.style.opacity = _trSelPct ? "1" : ".5";
+      }
+    }
+
+    async function trTranslateFullDoc() {
+      if (!_trFile) return;
+      const lang   = document.getElementById("trModalLang").value;
+      const csrf   = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+      const btn    = document.getElementById("trDownloadBtn");
+      const status = document.getElementById("trDocStatus");
+      btn.disabled = true; btn.textContent = "Translating…";
+      status.textContent = "This may take a minute for longer documents…";
+      try {
+        const fd = new FormData();
+        fd.append("file", _trFile);
+        fd.append("target_lang", lang);
+        fd.append("csrf_token", csrf);
+        const res = await fetch("/translate-pdf", {
+          method: "POST", body: fd, credentials: "same-origin",
+          headers: { "X-CSRFToken": csrf, "X-CSRF-Token": csrf },
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          if (d.error === "quota_exceeded") { showUpgradeModal(); return; }
+          throw new Error(d.error || "Translation failed.");
+        }
+        const blob     = await res.blob();
+        const url      = URL.createObjectURL(blob);
+        const a        = document.createElement("a");
+        a.href         = url;
+        a.download     = _trFile.name.replace(/\.pdf$/i, "") + "_translated.pdf";
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        status.textContent = "Downloaded!";
+        setTimeout(() => { status.textContent = ""; }, 3000);
+      } catch (err) {
+        showToast("Error: " + err.message, "error");
+        status.textContent = "";
+      } finally {
+        btn.disabled = false; btn.textContent = "🌐 Translate & Download PDF";
+      }
+    }
+
+    // Public entry point — called by doConvert dispatcher
+    window.doTranslate = function() {
+      if (!selectedFile) { showToast("Please select a PDF file first.", "error"); return; }
+      _trFile = selectedFile;
+      _trSelPct = null; _trCurPage = 0;
+      trSwitchTab("doc");
+      document.getElementById("trDocStatus").textContent = "";
+      document.getElementById("trHighlightResult").style.display = "none";
       document.getElementById("trModal").classList.add("open");
-    } catch (err) {
-      showToast("Error: " + err.message, "error");
-    } finally {
-      btn.disabled = false; btn.textContent = BTN_LABELS["translate-pdf"];
-      prog.classList.remove("visible");
-    }
-  }
+    };
 
-  function _trShowParagraph() {
-    const p = _trParagraphs[_trIndex];
-    document.getElementById("trCounter").textContent =
-      "Paragraph " + (_trIndex + 1) + " of " + _trParagraphs.length + "  ·  Page " + p.page;
-    document.getElementById("trSource").textContent  = p.text;
-    document.getElementById("trResult").style.display  = "none";
-    document.getElementById("trResult").textContent   = "";
-    document.getElementById("trNavRow").style.display  = "none";
-    const tb = document.getElementById("trTranslateBtn");
-    tb.disabled = false; tb.textContent = "🌐 Translate this";
-  }
-
-  async function _trTranslate() {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
-    const btn = document.getElementById("trTranslateBtn");
-    btn.disabled = true; btn.textContent = "Translating…";
-    try {
-      const res  = await fetch("/translate-chunk", {
-        method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json",
-                   "X-CSRFToken": csrfToken, "X-CSRF-Token": csrfToken },
-        body: JSON.stringify({ text: _trParagraphs[_trIndex].text,
-                               target_lang: _trLang, csrf_token: csrfToken }),
+    document.addEventListener("DOMContentLoaded", () => {
+      _initCanvas();
+      document.getElementById("trCloseBtn").addEventListener("click", trClose);
+      document.getElementById("trModal").addEventListener("click", e => {
+        if (e.target === document.getElementById("trModal")) trClose();
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Translation failed.");
-
-      const box = document.getElementById("trResult");
-      box.textContent  = data.translated;
-      box.style.display = "block";
-      document.getElementById("trNavRow").style.display = "flex";
-      document.getElementById("trNextBtn").style.display =
-        _trIndex < _trParagraphs.length - 1 ? "inline-block" : "none";
-      btn.textContent = "✓ Translated";
-    } catch (err) {
-      showToast("Error: " + err.message, "error");
-      btn.disabled = false; btn.textContent = "🌐 Translate this";
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("trTranslateBtn").addEventListener("click", _trTranslate);
-    document.getElementById("trNextBtn").addEventListener("click", () => {
-      _trIndex++;
-      _trShowParagraph();
+      document.getElementById("trTabDoc").addEventListener("click",       () => trSwitchTab("doc"));
+      document.getElementById("trTabHighlight").addEventListener("click", () => trSwitchTab("highlight"));
+      document.getElementById("trDownloadBtn").addEventListener("click",     trTranslateFullDoc);
+      document.getElementById("trTranslateSelBtn").addEventListener("click", trTranslateHighlight);
+      document.getElementById("trPrevPageBtn").addEventListener("click", () => {
+        if (_trCurPage > 0) _trLoadPage(_trCurPage - 1);
+      });
+      document.getElementById("trNextPageBtn").addEventListener("click", () => {
+        if (_trCurPage < _trTotalPages - 1) _trLoadPage(_trCurPage + 1);
+      });
+      document.getElementById("trClearSelBtn").addEventListener("click", _trClearCanvas);
+      document.getElementById("trCopyResultBtn").addEventListener("click", () => {
+        const text = document.getElementById("trHighlightResultText").textContent;
+        navigator.clipboard.writeText(text).then(() => showToast("Copied!", "success"));
+      });
+      document.getElementById("trOpenModalBtn").addEventListener("click", () => {
+        if (!selectedFile) { showToast("Please select a PDF file first.", "error"); return; }
+        window.doTranslate();
+      });
     });
-    document.getElementById("trDoneBtn").addEventListener("click", () => {
-      document.getElementById("trModal").classList.remove("open");
-    });
-    document.getElementById("trDoneBtnB").addEventListener("click", () => {
-      document.getElementById("trModal").classList.remove("open");
-    });
-    document.getElementById("trModal").addEventListener("click", e => {
-      if (e.target === document.getElementById("trModal"))
-        document.getElementById("trModal").classList.remove("open");
-    });
-  });
+  })();
 
   // ── Sign PDF ──────────────────────────────────────────────────────────────
   // Canvas drawing setup (IIFE, runs once)

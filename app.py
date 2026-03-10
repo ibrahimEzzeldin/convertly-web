@@ -68,6 +68,23 @@ def _load_voucher_codes():
     raw = os.getenv("VOUCHER_CODES", "")
     return {c.strip().upper() for c in raw.split(",") if c.strip()}
 
+
+# ── Argos Translate — pre-install common language pairs at startup ───────────
+# Runs in a background thread so it never blocks server startup.
+# Set ARGOS_PACKAGES_DIR to a persistent path on paid Render plans to avoid
+# re-downloading ~100 MB per pair on every dyno restart.
+try:
+    from translation_service import preinstall_pairs as _preinstall_argos
+    _ARGOS_PREINSTALL_PAIRS = [
+        ("en", "ar"), ("en", "fr"), ("en", "es"), ("en", "de"),
+        ("en", "it"), ("en", "pt"), ("en", "ru"), ("en", "zh"),
+        ("en", "ja"), ("en", "ko"), ("en", "tr"), ("en", "nl"),
+        ("en", "pl"), ("en", "hi"), ("en", "uk"), ("en", "sv"),
+    ]
+    _preinstall_argos(_ARGOS_PREINSTALL_PAIRS)
+except Exception as _argos_init_err:
+    logger.warning("Argos Translate pre-install skipped: %s", _argos_init_err)
+
 # ── Magic byte signatures ───────────────────────────────────────────────────
 MAGIC_BYTES = {
     ".pdf":  [b"%PDF"],
@@ -2478,6 +2495,58 @@ def _split_to_chunks(text, max_chars=480):
     return chunks or [text[:max_chars]]
 
 
+@app.route("/extract-text-region", methods=["POST"])
+@limiter.limit("30 per minute")
+def extract_text_region():
+    """Extract text from a rectangular region of a PDF page (percentage coordinates)."""
+    file = request.files.get("file")
+    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    try:
+        import json as _json
+        regions = _json.loads(request.form.get("regions", "[]"))
+    except Exception:
+        return jsonify({"error": "Invalid regions format."}), 400
+
+    if not regions:
+        return jsonify({"error": "No regions provided."}), 400
+
+    uid      = str(uuid.uuid4())
+    src_path = os.path.join(app.config["UPLOAD_FOLDER"],
+                            f"{uid}_{os.path.basename(file.filename)}")
+    file.save(src_path)
+    try:
+        import fitz
+        doc = fitz.open(src_path)
+        parts = []
+        for region in regions:
+            page_idx = int(region.get("page", 0))
+            if page_idx < 0 or page_idx >= len(doc):
+                continue
+            page = doc.load_page(page_idx)
+            pw, ph = page.rect.width, page.rect.height
+            x0 = float(region.get("x0_pct", 0))  / 100.0 * pw
+            y0 = float(region.get("y0_pct", 0))  / 100.0 * ph
+            x1 = float(region.get("x1_pct", 100)) / 100.0 * pw
+            y1 = float(region.get("y1_pct", 100)) / 100.0 * ph
+            rect = fitz.Rect(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+            text = page.get_text("text", clip=rect).strip()
+            if text:
+                parts.append(text)
+        doc.close()
+    finally:
+        try: os.remove(src_path)
+        except: pass
+
+    combined = "\n".join(parts)
+    if not combined:
+        return jsonify({"error": "No text found in the selected region. Try selecting a different area."}), 400
+
+    return jsonify({"text": combined})
+
+
 @app.route("/extract-pdf-paragraphs", methods=["POST"])
 @limiter.limit("20 per minute")
 def extract_pdf_paragraphs():
@@ -2517,6 +2586,37 @@ def extract_pdf_paragraphs():
     return jsonify({"paragraphs": paragraphs, "total": len(paragraphs)})
 
 
+@app.route("/translate", methods=["POST"])
+@limiter.limit("60 per minute")
+def translate_endpoint():
+    """Offline translation via Argos Translate.
+
+    Request JSON body:
+        { "text": "...", "from_code": "en", "to_code": "fr" }
+
+    Response:
+        { "translatedText": "..." }  on success
+        { "error": "..." }           on failure
+    """
+    data      = request.get_json(silent=True) or {}
+    text      = str(data.get("text", "")).strip()
+    from_code = str(data.get("from_code", "en")).strip().lower()
+    to_code   = str(data.get("to_code",   "en")).strip().lower()
+
+    if not text:
+        return jsonify({"error": "No text provided."}), 400
+    if from_code == to_code:
+        return jsonify({"translatedText": text})
+
+    try:
+        from translation_service import translate as argos_translate
+        translated = argos_translate(text, from_code, to_code)
+        return jsonify({"translatedText": translated})
+    except Exception as exc:
+        logger.error("Argos /translate error (%s→%s): %s", from_code, to_code, exc)
+        return jsonify({"error": str(exc)}), 500
+
+
 @app.route("/translate-chunk", methods=["POST"])
 @limiter.limit("60 per minute")
 def translate_chunk():
@@ -2526,6 +2626,16 @@ def translate_chunk():
     if not text:
         return jsonify({"error": "No text provided."}), 400
     target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
+
+    # Try Argos Translate first (offline, no rate limits)
+    try:
+        from translation_service import translate as argos_translate
+        translated = argos_translate(text, "en", target_code)
+        return jsonify({"translated": translated})
+    except Exception as argos_err:
+        logger.debug("Argos unavailable, falling back to MyMemory: %s", argos_err)
+
+    # Fallback: MyMemory free online API
     try:
         translated = _mymemory_translate(text, target_code)
         return jsonify({"translated": translated})
