@@ -2492,6 +2492,8 @@ _MYMEMORY_LANG_CODE = {
     "Norwegian": "no", "Danish": "da", "Greek": "el", "Hebrew": "he",
     "Indonesian": "id", "Vietnamese": "vi",
 }
+# Reverse: ISO code → full name (used to normalise frontend ISO codes back to full names)
+_LANG_CODE_TO_NAME = {v: k for k, v in _MYMEMORY_LANG_CODE.items()}
 
 _MYMEMORY_URL        = "https://api.mymemory.translated.net/get"
 _MAX_CHUNK_SIZE      = 400
@@ -2701,6 +2703,9 @@ def translate_chunk():
         if not text:
             return jsonify({"error": "No text provided."}), 400
 
+        # Normalise: if frontend sent an ISO code (e.g. "fr"), convert to full name ("French")
+        target_lang = _LANG_CODE_TO_NAME.get(target_lang, target_lang)
+
         is_pro = session.get("pro_unlocked", False)
 
         if not is_pro:
@@ -2758,6 +2763,8 @@ def translate_pdf_route():
         return jsonify({"error": "File does not appear to be a valid PDF."}), 400
 
     target_lang = request.form.get("target_lang", "English").strip()
+    # Normalise: if frontend sent an ISO code (e.g. "fr"), convert to full name ("French")
+    target_lang = _LANG_CODE_TO_NAME.get(target_lang, target_lang)
     if target_lang not in TRANSLATE_TARGET_LANGS:
         target_lang = "English"
     target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
