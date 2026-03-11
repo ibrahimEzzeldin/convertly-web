@@ -48,6 +48,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ── LibreOffice detection ───────────────────────────────────────────────────
+LIBREOFFICE_PATH = shutil.which("libreoffice") or shutil.which("soffice")
+if LIBREOFFICE_PATH:
+    logger.info("LibreOffice found at: %s", LIBREOFFICE_PATH)
+else:
+    logger.warning("LibreOffice NOT found — Word to PDF will be unavailable")
+
+
 # ── App setup ──────────────────────────────────────────────────────────────
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"]      = os.getenv("UPLOAD_FOLDER", "uploads")
@@ -244,13 +252,19 @@ def pdf_to_excel(src, out):
 
 def word_to_pdf(src, out):
     """Convert .docx/.doc to PDF using LibreOffice headless (preserves full layout)."""
-    import subprocess, shutil, tempfile
+    import subprocess, tempfile
+
+    if not LIBREOFFICE_PATH:
+        raise RuntimeError(
+            "Word to PDF conversion requires LibreOffice which is not installed on this server."
+        )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         result = subprocess.run(
             [
-                "libreoffice",
+                LIBREOFFICE_PATH,
                 "--headless",
+                "--norestore",
                 "--convert-to", "pdf",
                 "--outdir", tmp_dir,
                 src,
@@ -261,13 +275,14 @@ def word_to_pdf(src, out):
         )
 
         if result.returncode != 0:
-            raise Exception(f"LibreOffice conversion failed: {result.stderr.strip()}")
+            logger.error("LibreOffice stderr: %s", result.stderr)
+            raise Exception(f"LibreOffice conversion failed: {result.stderr.strip()[:200]}")
 
         base_name = os.path.splitext(os.path.basename(src))[0]
         lo_output = os.path.join(tmp_dir, f"{base_name}.pdf")
 
         if not os.path.exists(lo_output):
-            raise Exception("LibreOffice did not produce an output file")
+            raise Exception("LibreOffice ran but produced no output file")
 
         shutil.move(lo_output, out)
 
@@ -425,6 +440,8 @@ def convert():
         return jsonify({"error": str(exc)}), 504
     except Exception as exc:
         logger.error("Conversion error for %s: %s", safe_name, exc, exc_info=True)
+        if isinstance(exc, RuntimeError) and "not installed" in str(exc):
+            return jsonify({"error": "Word to PDF conversion is temporarily unavailable. Please try again later."}), 503
         return jsonify({"error": "Conversion failed. Please check your file and try again."}), 500
     finally:
         if os.path.exists(src):
