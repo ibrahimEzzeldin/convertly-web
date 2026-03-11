@@ -9,3 +9,4 @@ uploads/
 app.log
 server.log
 .claude/
+build.sh
