@@ -243,41 +243,35 @@ def pdf_to_excel(src, out):
 
 
 def word_to_pdf(src, out):
-    _word_to_pdf_fallback(src, out)
+    """Convert .docx/.doc to PDF using LibreOffice headless (preserves full layout)."""
+    import subprocess, shutil, tempfile
 
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        result = subprocess.run(
+            [
+                "libreoffice",
+                "--headless",
+                "--convert-to", "pdf",
+                "--outdir", tmp_dir,
+                src,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
 
-def _word_to_pdf_fallback(src, out):
-    import mammoth
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-    from reportlab.lib.enums import TA_LEFT
-    import html as html_lib, re
+        if result.returncode != 0:
+            raise Exception(f"LibreOffice conversion failed: {result.stderr.strip()}")
 
-    with open(src, "rb") as f:
-        result = mammoth.convert_to_html(f)
-    raw_html = result.value
-    raw_html = re.sub(r"<br\s*/?>", "\n", raw_html, flags=re.IGNORECASE)
-    raw_html = re.sub(r"</?(p|div|li|h[1-6])[^>]*>", "\n", raw_html, flags=re.IGNORECASE)
-    raw_html = re.sub(r"<[^>]+>", "", raw_html)
-    text     = html_lib.unescape(raw_html)
+        base_name = os.path.splitext(os.path.basename(src))[0]
+        lo_output = os.path.join(tmp_dir, f"{base_name}.pdf")
 
-    doc    = SimpleDocTemplate(out, pagesize=A4,
-                                topMargin=0.75*inch, bottomMargin=0.75*inch,
-                                leftMargin=inch, rightMargin=inch)
-    styles = getSampleStyleSheet()
-    body   = ParagraphStyle("body", parent=styles["Normal"], fontSize=10,
-                             leading=14, spaceAfter=4, alignment=TA_LEFT)
-    elements = []
-    for line in text.split("\n"):
-        line = line.strip()
-        if line:
-            elements.append(Paragraph(line, body))
-        else:
-            elements.append(Spacer(1, 6))
-    doc.build(elements)
-    logger.info("word_to_pdf: used mammoth fallback")
+        if not os.path.exists(lo_output):
+            raise Exception("LibreOffice did not produce an output file")
+
+        shutil.move(lo_output, out)
+
+    logger.info("word_to_pdf: converted via LibreOffice headless")
 
 
 def excel_to_pdf(src, out):
@@ -1697,11 +1691,24 @@ def jpg_to_pdf_route():
             saved_imgs.append(img_path)
 
             # Read with Pillow to get exact pixel dimensions and convert exotic
-            # formats (WEBP, BMP, GIF) to PNG bytes that MuPDF can embed.
+            # formats (WEBP, BMP, GIF, RGBA, palette) to JPEG bytes for MuPDF.
             raw = open(img_path, "rb").read()
             try:
                 pil = PILImage.open(_io.BytesIO(raw))
-                pil = pil.convert("RGB")          # strip alpha / palette
+                # Animated GIF — use first frame only
+                if hasattr(pil, "n_frames") and pil.n_frames > 1:
+                    pil.seek(0)
+                # Palette mode: convert to RGBA first to preserve any transparency
+                if pil.mode == "P":
+                    pil = pil.convert("RGBA")
+                # Flatten transparency onto white background
+                if pil.mode in ("RGBA", "LA"):
+                    bg = PILImage.new("RGB", pil.size, (255, 255, 255))
+                    alpha = pil.split()[-1]  # last channel is alpha for both RGBA and LA
+                    bg.paste(pil.convert("RGB"), mask=alpha)
+                    pil = bg
+                elif pil.mode != "RGB":
+                    pil = pil.convert("RGB")
                 w_px, h_px = pil.size
                 buf = _io.BytesIO()
                 pil.save(buf, format="JPEG", quality=92)
