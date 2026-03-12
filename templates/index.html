@@ -4,10 +4,62 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>Convertly — File Converter</title>
+
+  <!-- Primary SEO -->
+  <title>Convertly — Free PDF Converter, Word to PDF, Translate PDF Online</title>
+  <meta name="description" content="Free online file converter. Convert PDF to Word, Word to PDF, Excel to PDF, JPG to PDF. Translate PDFs in 23 languages. Merge, split, compress, sign PDFs. No sign-up needed.">
+  <meta name="keywords" content="PDF converter, PDF to Word, Word to PDF, Excel to PDF, JPG to PDF, translate PDF, merge PDF, split PDF, compress PDF, free PDF converter, online PDF tool, PDF translator">
+  <meta name="author" content="Convertly">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://convertly-web.onrender.com/">
+
+  <!-- Open Graph (Facebook, LinkedIn, WhatsApp preview) -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://convertly-web.onrender.com/">
+  <meta property="og:title" content="Convertly — Free PDF & File Converter Online">
+  <meta property="og:description" content="Convert PDF to Word, translate PDFs in 23 languages, merge, split and compress PDFs. Free, fast, no sign-up needed.">
+  <meta property="og:image" content="https://convertly-web.onrender.com/static/og-image.png">
+
+  <!-- Twitter/X Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Convertly — Free PDF Converter Online">
+  <meta name="twitter:description" content="Convert PDF to Word, Word to PDF, translate PDFs in 23 languages. Free, no sign-up needed.">
+  <meta name="twitter:image" content="https://convertly-web.onrender.com/static/og-image.png">
+
+  <!-- Structured Data (Google Rich Results) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Convertly",
+    "url": "https://convertly-web.onrender.com",
+    "description": "Free online PDF and file converter. Convert, translate, merge, split, compress PDFs. No sign-up required.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": [
+      "PDF to Word conversion",
+      "Word to PDF conversion",
+      "Excel to PDF conversion",
+      "PDF translation in 23 languages",
+      "Merge PDF files",
+      "Split PDF files",
+      "Compress PDF files",
+      "Add watermark to PDF",
+      "Sign PDF documents",
+      "JPG to PDF conversion"
+    ]
+  }
+  </script>
+
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 

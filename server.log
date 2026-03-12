@@ -1,0 +1,23 @@
+ * Serving Flask app 'app'
+ * Debug mode: off
+2026-03-11 09:52:41,150 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.171:5000
+2026-03-11 09:52:41,150 [INFO] [33mPress CTRL+C to quit[0m
+2026-03-11 09:52:48,817 [INFO] 127.0.0.1 - - [11/Mar/2026 09:52:48] "GET /status HTTP/1.1" 200 -
+2026-03-11 09:52:57,728 [INFO] The CSRF token is missing.
+2026-03-11 09:52:57,728 [WARNING] CSRF validation failed: The CSRF token is missing.
+2026-03-11 09:52:57,728 [INFO] 127.0.0.1 - - [11/Mar/2026 09:52:57] "[31m[1mPOST /convert HTTP/1.1[0m" 400 -
+2026-03-11 09:53:05,795 [INFO] The CSRF token is missing.
+2026-03-11 09:53:05,795 [WARNING] CSRF validation failed: The CSRF token is missing.
+2026-03-11 09:53:05,795 [INFO] 127.0.0.1 - - [11/Mar/2026 09:53:05] "[31m[1mPOST /convert HTTP/1.1[0m" 400 -
+2026-03-11 09:53:15,644 [INFO] 127.0.0.1 - - [11/Mar/2026 09:53:15] "GET / HTTP/1.1" 200 -
+2026-03-11 09:53:15,744 [INFO] The CSRF token is missing.
+2026-03-11 09:53:15,744 [WARNING] CSRF validation failed: The CSRF token is missing.
+2026-03-11 09:53:15,744 [INFO] 127.0.0.1 - - [11/Mar/2026 09:53:15] "[31m[1mPOST /convert HTTP/1.1[0m" 400 -
+2026-03-11 09:53:23,627 [INFO] 127.0.0.1 - - [11/Mar/2026 09:53:23] "GET / HTTP/1.1" 200 -
+2026-03-11 09:53:34,159 [INFO] 127.0.0.1 - - [11/Mar/2026 09:53:34] "GET / HTTP/1.1" 200 -
+2026-03-11 09:53:34,265 [INFO] The CSRF token is missing.
+2026-03-11 09:53:34,265 [WARNING] CSRF validation failed: The CSRF token is missing.
+2026-03-11 09:53:34,265 [INFO] 127.0.0.1 - - [11/Mar/2026 09:53:34] "[31m[1mPOST /convert HTTP/1.1[0m" 400 -

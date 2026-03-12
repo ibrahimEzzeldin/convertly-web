@@ -374,6 +374,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/share")
+def share():
+    return render_template("share.html")
+
+
 @app.route("/status")
 def status():
     conversions_used   = session.get("conversions_used", 0)
@@ -3404,6 +3409,30 @@ def ratelimit_error(e):
 @app.errorhandler(413)
 def file_too_large(e):
     return jsonify({"error": f"File too large. Maximum size is {app.config['MAX_FILE_SIZE'] // (1024*1024)} MB."}), 413
+
+
+# ── SEO Routes ────────────────────────────────────────────────────────────
+
+@app.route('/sitemap.xml')
+def sitemap():
+    return send_from_directory('static', 'sitemap.xml', mimetype='application/xml')
+
+
+@app.route('/robots.txt')
+def robots():
+    return """User-agent: *
+Allow: /
+Sitemap: https://convertly-web.onrender.com/sitemap.xml
+""", 200, {'Content-Type': 'text/plain'}
+
+
+# ── Cache headers for static files ────────────────────────────────────────
+
+@app.after_request
+def add_cache_headers(response):
+    if request.path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'public, max-age=31536000'
+    return response
 
 
 if __name__ == "__main__":

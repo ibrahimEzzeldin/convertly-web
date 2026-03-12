@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Primary SEO -->
+  <title>Share Convertly — Free PDF Converter & File Converter Tool</title>
+  <meta name="description" content="Share Convertly, the free PDF and file converter. Convert PDF to Word, translate PDFs in 23 languages, merge, split, compress PDFs. Invite friends and earn conversions!">
+  <meta name="keywords" content="share PDF converter, free file converter, convert PDF online, PDF tools, share convertly">
+  <meta name="author" content="Convertly">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://convertly-web.onrender.com/share">
+
+  <!-- Open Graph (Facebook, LinkedIn, WhatsApp preview) -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://convertly-web.onrender.com/share">
+  <meta property="og:title" content="Convertly — Free PDF Converter Online">
+  <meta property="og:description" content="Convert PDF to Word, translate PDFs in 23 languages, merge, split and compress PDFs. Free, fast, no sign-up needed.">
+  <meta property="og:image" content="https://convertly-web.onrender.com/static/og-image.png">
+
+  <!-- Twitter/X Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Convertly — Free PDF Converter">
+  <meta name="twitter:description" content="Convert PDF to Word, Word to PDF, translate PDFs. Free PDF tools, no sign-up needed.">
+  <meta name="twitter:image" content="https://convertly-web.onrender.com/static/og-image.png">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Convertly",
+    "url": "https://convertly-web.onrender.com",
+    "description": "Free online PDF and file converter",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any"
+  }
+  </script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f0f1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      gap: 24px;
+    }
+
+    /* App Card */
+    .app-card {
+      background: linear-gradient(135deg, #1e1b4b, #312e81);
+      border: 1px solid #4f46e5;
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(79,70,229,0.3);
+    }
+    .app-logo {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 16px;
+    }
+    .app-name {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .app-tagline {
+      color: #a5b4fc;
+      font-size: 0.95rem;
+      margin: 6px 0 20px;
+    }
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    .feature {
+      background: rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.82rem;
+      color: #e0e7ff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .app-url {
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: #a5b4fc;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      margin-bottom: 20px;
+      word-break: break-all;
+    }
+    .copy-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-bottom: 8px;
+    }
+    .copy-btn:hover { opacity: 0.9; }
+    .copy-msg {
+      font-size: 0.8rem;
+      color: #22c55e;
+      min-height: 20px;
+      font-weight: 600;
+    }
+
+    /* Social Buttons */
+    .social-section {
+      max-width: 480px;
+      width: 100%;
+    }
+    .social-title {
+      color: #6b7280;
+      font-size: 0.8rem;
+      text-align: center;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .social-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .social-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      color: white;
+      transition: opacity 0.2s, transform 0.1s;
+      border: none;
+    }
+    .social-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-whatsapp { background: #25D366; }
+    .btn-linkedin { background: #0A66C2; }
+    .btn-twitter  { background: #000000; }
+    .btn-facebook { background: #1877F2; }
+    .btn-telegram { background: #229ED9; }
+    .btn-copy-all { background: #374151; grid-column: span 2; }
+
+    /* Footer link back to main site */
+    .footer-link {
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .footer-link a {
+      color: #a5b4fc;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+    .footer-link a:hover {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<!-- App Card -->
+<div class="app-card">
+  <div class="app-logo">📄</div>
+  <div class="app-name">Convertly</div>
+  <div class="app-tagline">Free PDF & File Converter — No sign-up needed</div>
+
+  <div class="features">
+    <div class="feature">✅ PDF ↔ Word</div>
+    <div class="feature">✅ PDF ↔ Excel</div>
+    <div class="feature">✅ Images → PDF</div>
+    <div class="feature">✅ Translate PDF</div>
+    <div class="feature">✅ Merge & Split</div>
+    <div class="feature">✅ Compress PDF</div>
+    <div class="feature">✅ Sign & Watermark</div>
+    <div class="feature">✅ 23 Languages</div>
+  </div>
+
+  <div class="app-url">🔗 convertly-web.onrender.com</div>
+
+  <button class="copy-btn" onclick="copyLink()">📋 Copy Link</button>
+  <div class="copy-msg" id="copy-msg"></div>
+</div>
+
+<!-- Social Share Buttons -->
+<div class="social-section">
+  <div class="social-title">Share on</div>
+  <div class="social-grid">
+
+    <a class="social-btn btn-whatsapp" href="https://wa.me/?text=🌟 Convertly — Free File Converter! Convert PDF, Word, Excel, Images and more. Translate PDFs in 23 languages. No sign-up needed! 🔗 https://convertly-web.onrender.com" target="_blank">
+      💬 WhatsApp
+    </a>
+
+    <a class="social-btn btn-telegram" href="https://t.me/share/url?url=https://convertly-web.onrender.com&text=🌟 Convertly — Free PDF %26 File Converter! Convert, Merge, Translate PDFs in 23 languages. No sign-up needed!" target="_blank">
+      ✈️ Telegram
+    </a>
+
+    <a class="social-btn btn-linkedin" href="https://www.linkedin.com/sharing/share-offsite/?url=https://convertly-web.onrender.com" target="_blank">
+      💼 LinkedIn
+    </a>
+
+    <a class="social-btn btn-twitter" href="https://twitter.com/intent/tweet?text=🌟 Just launched Convertly — a free PDF %26 file converter! Convert, merge, split, compress, translate PDFs in 23 languages. No sign-up needed! 🔗 https://convertly-web.onrender.com" target="_blank">
+      𝕏 Twitter / X
+    </a>
+
+    <a class="social-btn btn-facebook" href="https://www.facebook.com/sharer/sharer.php?u=https://convertly-web.onrender.com" target="_blank">
+      👍 Facebook
+    </a>
+
+    <button class="social-btn btn-copy-all" onclick="copyAll()">
+      📝 Copy Full Message
+    </button>
+
+  </div>
+</div>
+
+<!-- Footer Link -->
+<div class="footer-link">
+  <a href="/">← Back to Convertly</a>
+</div>
+
+<script>
+  const APP_URL = "https://convertly-web.onrender.com";
+  const FULL_MSG = `🌟 Convertly — Free File Converter!
+
+✅ PDF ↔ Word & Excel
+✅ Images → PDF
+✅ Merge, Split & Compress PDF
+✅ Translate PDF in 23 languages
+✅ Sign & Watermark PDF
+✅ No sign-up needed · 100% Secure 🔒
+
+🔗 ${APP_URL}
+
+Files are deleted immediately after download. Try it and share it!`;
+
+  function copyLink() {
+    navigator.clipboard.writeText(APP_URL).then(() => {
+      const msg = document.getElementById('copy-msg');
+      msg.textContent = '✅ Link copied to clipboard!';
+      setTimeout(() => msg.textContent = '', 3000);
+    });
+  }
+
+  function copyAll() {
+    navigator.clipboard.writeText(FULL_MSG).then(() => {
+      const msg = document.getElementById('copy-msg');
+      msg.textContent = '✅ Full message copied!';
+      setTimeout(() => msg.textContent = '', 3000);
+    });
+  }
+</script>
+</body>
+</html>

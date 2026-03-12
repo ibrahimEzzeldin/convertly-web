@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd:*)",
+      "Bash(netstat:*)",
+      "Bash(wmic process:*)",
+      "Bash(ls /c/Users/Agent17/Desktop/convertly-web/uploads/*.pdf 2>/dev/null | head -5)",
+      "Bash(source .venv/Scripts/activate && python test_features.py 2>&1)",
+      "Bash(git add app.py templates/index.html && git commit -m \"$\\(cat <<'EOF'\nfeat: remove OCR PDF feature \\(Tesseract not available on server\\)\n\n- Remove /ocr-pdf route and _ocr_pdf_make_searchable helper from backend\n- Remove OCR mode button, options panel, stats badge, and doOcr\\(\\) from frontend\n- Update error messages that referenced \"Run OCR first\" for scanned PDFs\n- 25/25 feature tests passing\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git push origin main)",
+      "Bash(git add app.py && git commit -m \"$\\(cat <<'EOF'\nfix: handle MyMemory 429 rate limit with delay and clear error message\n\n- Add 0.6s delay between consecutive chunk requests to stay within free-tier limits\n- Catch HTTP 429 explicitly and raise a user-friendly \"please wait\" message\n  instead of exposing the raw API error\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\" && git push origin main)",
+      "Bash(pip index versions argostranslate 2>&1 | head -5)",
+      "Bash(timeout 10 bash -c 'until curl -s http://127.0.0.1:5000/status > /dev/null 2>&1; do echo \"waiting...\"; done'; echo \"Server ready\")",
+      "Bash(.venv/Scripts/python test_features.py 2>&1)",
+      "Bash(git commit -m \"$\\(cat <<'EOF'\nfeat: replace MyMemory-only translation with LibreTranslate primary + MyMemory fallback\n\n- Create translation_service.py with split_into_chunks, translate_with_libretranslate,\n  translate_with_mymemory, translate_chunk \\(tries LibreTranslate first\\), translate_text\n- Update /translate, /translate-chunk, /translate-pdf routes to use translation_service\n- Remove stale Anthropic-specific error messages from /translate-pdf error handler\n- All 28 feature tests passing\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push origin main 2>&1)",
+      "Bash(.venv/Scripts/pip install arabic-reshaper python-bidi -q 2>&1 | tail -5)",
+      "Bash(mkdir -p \"C:/Users/Agent17/Desktop/convertly-web/static/fonts\" && curl -sL \"https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf\" -o \"C:/Users/Agent17/Desktop/convertly-web/static/fonts/Amiri-Regular.ttf\" && echo \"OK\" || echo \"FAIL\")",
+      "Bash(.venv/Scripts/pip install \"python-bidi==0.4.2\" -q 2>&1 | tail -5 && python -c \"from bidi.algorithm import get_display; print\\('bidi 0.4.2 ok'\\)\")",
+      "Bash(git add requirements.txt && git commit -m \"fix: pin python-bidi==0.4.2 to fix Render build failure\n\npython-bidi>=0.6.0 fails metadata generation on Render \\(build system change\\).\n0.4.2 is the last stable pip-installable version.\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\" && git push origin main 2>&1)",
+      "Bash(where libreoffice:*)",
+      "Bash(sleep 3 && curl -s http://127.0.0.1:5000/status)",
+      "Bash(cd \"C:/Users/Agent17/Desktop/convertly-web\" && source .venv/Scripts/activate && python test_fixes.py 2>&1 | cat)",
+      "Bash(cd \"C:/Users/Agent17/Desktop/convertly-web\" && source .venv/Scripts/activate && python test_fixes.py)",
+      "Bash(cd \"C:/Users/Agent17/Desktop/convertly-web\" && rm test_fixes.py)"
+    ]
+  }
+}
