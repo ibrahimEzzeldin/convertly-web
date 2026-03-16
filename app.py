@@ -150,14 +150,14 @@ def set_security_headers(response):
     response.headers["Permissions-Policy"]     = "camera=(), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
         f"default-src 'self'; "
-        f"script-src 'self' 'nonce-{nonce}' "
+        f"script-src 'self' 'nonce-{nonce}' 'unsafe-hashes' "
             f"https://*.paypal.com https://*.paypalobjects.com; "
-        f"style-src 'self' 'unsafe-inline' https://www.paypalobjects.com; "
+        f"style-src 'self' 'unsafe-inline' https://www.paypalobjects.com https://fonts.googleapis.com; "
         f"img-src 'self' data: https://*.paypal.com https://*.paypalobjects.com; "
         f"connect-src 'self' https://*.paypal.com https://api.paypal.com; "
         f"frame-src https://*.paypal.com https://www.paypal.com; "
         f"form-action 'self' https://www.paypal.com https://*.paypal.com; "
-        f"font-src 'self' https://www.paypalobjects.com; "
+        f"font-src 'self' https://www.paypalobjects.com https://fonts.googleapis.com https://fonts.gstatic.com; "
         f"base-uri 'self';"
     )
     return response
