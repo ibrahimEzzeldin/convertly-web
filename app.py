@@ -395,6 +395,11 @@ def status():
     })
 
 
+@app.route("/google4bbdce78d1b4593c.html")
+def google_verification():
+    return "google-site-verification: google4bbdce78d1b4593c.html"
+
+
 @app.route("/convert", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def convert():
