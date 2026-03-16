@@ -936,9 +936,7 @@
       <input type="text" id="extractPages" class="split-text-input"
         placeholder="e.g. 1-3, 5, 8-10"
         autocomplete="off"
-        style="border-color:#c7d2fe;"
-        onfocus="this.style.borderColor='#6366f1'"
-        onblur="this.style.borderColor='#c7d2fe'" />
+        style="border-color:#c7d2fe;" />
       <div style="font-size:11px;color:#8b90a7;margin-top:6px;line-height:1.5;">
         Enter page numbers or ranges separated by commas.<br>
         Example: <strong>1-3, 5, 8-10</strong> extracts those pages into a single new PDF.<br>
@@ -954,9 +952,7 @@
       <input type="text" id="removePages" class="split-text-input"
         placeholder="e.g. 2, 5, 8-10"
         autocomplete="off"
-        style="border-color:#fed7aa;"
-        onfocus="this.style.borderColor='#f97316'"
-        onblur="this.style.borderColor='#fed7aa'" />
+        style="border-color:#fed7aa;" />
       <div style="font-size:11px;color:#8b90a7;margin-top:6px;line-height:1.5;">
         Enter page numbers or ranges separated by commas.<br>
         Example: <strong>2, 5, 8-10</strong> removes pages 2, 5, 8, 9 and 10.
@@ -1435,9 +1431,9 @@
         <!-- Tab switcher -->
         <div style="display:flex;gap:6px;">
           <button id="signTabDraw" class="wm-pos-btn selected" type="button"
-                  onclick="switchSignTab('draw')">✏️ Draw</button>
+                  data-tab="draw">✏️ Draw</button>
           <button id="signTabUpload" class="wm-pos-btn" type="button"
-                  onclick="switchSignTab('upload')">📁 Upload</button>
+                  data-tab="upload">📁 Upload</button>
         </div>
 
         <!-- Draw pad -->
@@ -4614,6 +4610,66 @@
     badge.textContent   = `${remaining} free translation${remaining !== 1 ? 's' : ''} left today`;
     badge.style.color   = remaining <= 1 ? '#e74c3c' : '#7c3aed';
   }
+
+  // ── Event Listeners (CSP Compliant) ───────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    // Input focus/blur color effects
+    const extractPagesInput = document.getElementById('extractPages');
+    if (extractPagesInput) {
+      extractPagesInput.addEventListener('focus', function() {
+        this.style.borderColor = '#6366f1';
+      });
+      extractPagesInput.addEventListener('blur', function() {
+        this.style.borderColor = '#c7d2fe';
+      });
+    }
+
+    const removePagesInput = document.getElementById('removePages');
+    if (removePagesInput) {
+      removePagesInput.addEventListener('focus', function() {
+        this.style.borderColor = '#f97316';
+      });
+      removePagesInput.addEventListener('blur', function() {
+        this.style.borderColor = '#fed7aa';
+      });
+    }
+
+    // Sign tab switching
+    const signTabDraw = document.getElementById('signTabDraw');
+    const signTabUpload = document.getElementById('signTabUpload');
+    if (signTabDraw) {
+      signTabDraw.addEventListener('click', function() {
+        switchSignTab('draw');
+      });
+    }
+    if (signTabUpload) {
+      signTabUpload.addEventListener('click', function() {
+        switchSignTab('upload');
+      });
+    }
+
+    // Translation modal buttons
+    const transModalClose = document.getElementById('transModalClose');
+    const transModalMaybeLater = document.getElementById('transModalMaybeLater');
+    const paypalCheckoutBtn = document.getElementById('paypalCheckoutBtn');
+    const applyVoucherBtn = document.getElementById('applyVoucherBtn');
+
+    if (transModalClose) {
+      transModalClose.addEventListener('click', closeTranslationLimitModal);
+    }
+    if (transModalMaybeLater) {
+      transModalMaybeLater.addEventListener('click', closeTranslationLimitModal);
+    }
+    if (paypalCheckoutBtn) {
+      paypalCheckoutBtn.addEventListener('click', function() {
+        startPaypalCheckout();
+        closeTranslationLimitModal();
+      });
+    }
+    if (applyVoucherBtn) {
+      applyVoucherBtn.addEventListener('click', applyTranslationVoucher);
+    }
+  });
 </script>
 
 <!-- Translation limit paywall modal -->
@@ -4622,7 +4678,7 @@
          align-items:center;justify-content:center;">
   <div style="position:relative;max-width:420px;width:90%;background:#fff;border-radius:16px;
               padding:28px 24px;box-shadow:0 20px 60px rgba(0,0,0,0.15);text-align:center;">
-    <button onclick="closeTranslationLimitModal()"
+    <button id="transModalClose" data-action="closeTranslationLimitModal"
       style="position:absolute;top:12px;right:16px;background:none;border:none;
              font-size:1.4rem;cursor:pointer;color:#aaa;">×</button>
     <span style="font-size:2rem;">🌐</span>
@@ -4654,7 +4710,7 @@
       <span style="display:block;font-size:0.8rem;color:#888;margin-top:2px;">one-time · no subscription</span>
     </div>
     <!-- PayPal -->
-    <button onclick="startPaypalCheckout(); closeTranslationLimitModal();"
+    <button id="paypalCheckoutBtn" data-action="paypalCheckout"
       style="width:100%;padding:14px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;
              border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:16px;">
       💳 Unlock Pro with PayPal
@@ -4669,12 +4725,12 @@
     <div style="display:flex;gap:8px;margin-bottom:6px;">
       <input id="tl-voucher-input" type="text" placeholder="Enter voucher e.g. FRIEND2025"
         style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.85rem;" />
-      <button onclick="applyTranslationVoucher()"
+      <button id="applyVoucherBtn" data-action="applyVoucher"
         style="padding:10px 16px;background:#1a1a2e;color:white;border:none;border-radius:8px;
                font-weight:600;cursor:pointer;font-size:0.85rem;">Apply</button>
     </div>
     <p id="tl-voucher-msg" style="font-size:0.8rem;min-height:18px;margin:4px 0 12px;"></p>
-    <button onclick="closeTranslationLimitModal()"
+    <button id="transModalMaybeLater" data-action="closeTranslationLimitModal"
       style="background:none;border:none;color:#aaa;font-size:0.8rem;cursor:pointer;">Maybe later</button>
   </div>
 </div>
