@@ -13,6 +13,21 @@ from pathlib import Path
 from translation_service import translate_text as _ts_translate_text
 from datetime import datetime as _datetime
 
+# ── Security Manager (Quota, Auth, DDoS Protection) ─────────────────────────
+from security_manager import (
+    get_client_fingerprint,
+    ConversionCounter,
+    TranslationQuota,
+    ProToken,
+    VoucherSecurity,
+    CaptchaVerifier,
+    require_captcha,
+    check_conversion_quota,
+    LogSanitizer,
+    SanitizingLogger,
+)
+import jwt  # For JWT token handling
+
 # ── RTL (Arabic / Hebrew) rendering helpers ────────────────────────────────
 try:
     import arabic_reshaper as _arabic_reshaper
@@ -37,7 +52,7 @@ def _prepare_rtl_text(text: str) -> str:
 
 load_dotenv(override=True)
 
-# ── Logging ────────────────────────────────────────────────────────────────
+# ── Logging with Password Sanitization ────────────────────────────────────
 log_level = logging.DEBUG if os.getenv("FLASK_DEBUG", "False").lower() == "true" else logging.INFO
 logging.basicConfig(
     level=log_level,
@@ -47,7 +62,8 @@ logging.basicConfig(
         logging.FileHandler("app.log", encoding="utf-8"),
     ],
 )
-logger = logging.getLogger(__name__)
+# Use SanitizingLogger to automatically scrub passwords from logs
+logger = SanitizingLogger(__name__)
 
 # ── LibreOffice detection ───────────────────────────────────────────────────
 LIBREOFFICE_PATH = shutil.which("libreoffice") or shutil.which("soffice")
@@ -382,14 +398,25 @@ def share():
 
 @app.route("/status")
 def status():
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
-    paid               = session.get("paid", False)
+    fingerprint = get_client_fingerprint(request)
+    used, budget, remaining, is_pro = ConversionCounter.get_status(fingerprint)
+    
+    # Check JWT Pro token
+    pro_token = request.cookies.get("pro_token")
+    pro_valid = False
+    if pro_token:
+        valid, payload = ProToken.verify(pro_token)
+        if valid and payload.get("fingerprint") == fingerprint:
+            pro_valid = True
+    
+    is_pro = is_pro or pro_valid
+    
     return jsonify({
-        "conversions_used":      conversions_used,
-        "conversions_budget":    conversions_budget,
-        "conversions_remaining": max(conversions_budget - conversions_used, 0),
-        "paid":                  paid,
+        "conversions_used":      used,
+        "conversions_budget":    budget,
+        "conversions_remaining": remaining,
+        "paid":                  is_pro,
+        "pro_valid":             is_pro,
         "free_limit":            FREE_CONVERSIONS_LIMIT,
         "paid_amount":           PAID_CONVERSIONS_AMOUNT,
         "price_usd":             PAYPAL_PRICE_USD,
@@ -402,18 +429,18 @@ def google_verification():
 
 
 @app.route("/convert", methods=["POST"])
-@limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
+@limiter.limit("5 per minute; 50 per hour")  # Stricter rate limit
 def convert():
-    # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    # ── SERVER-SIDE Quota check using fingerprint ──────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    used, budget, remaining, is_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if used >= budget and not is_pro:
         return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "error": "quota_exceeded",
+            "message": "You've used all your free conversions.",
+            "used": used,
+            "budget": budget,
         }), 402
 
     # ── Validate mode & file ───────────────────────────────────────────────
@@ -462,24 +489,28 @@ def convert():
         logger.error("Output file missing after conversion: %s", out)
         return jsonify({"error": "Conversion produced no output. Please try again."}), 500
 
-    # ── Increment quota counter ────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    # ── Increment server-side quota counter ────────────────────────────────
+    used, budget, remaining = ConversionCounter.increment(fingerprint, request)
 
     out_name = os.path.splitext(safe_name)[0] + "_converted" + MODES[mode]["ext"]
     logger.info("Conversion complete: %s → %s", safe_name, out_name)
 
+    response = send_file(out, as_attachment=True, download_name=out_name)
+    
+    # Add quota headers to response
+    response.headers["X-Conversions-Used"] = str(used)
+    response.headers["X-Conversions-Remaining"] = str(remaining)
+
     @after_this_request
-    def remove_output(response):
+    def remove_output(resp):
         try:
             if os.path.exists(out):
                 os.remove(out)
         except Exception:
             pass
-        return response
+        return resp
 
-    return send_file(out, as_attachment=True, download_name=out_name)
+    return response
 
 
 # ── Merge PDF ──────────────────────────────────────────────────────────────
@@ -1474,13 +1505,16 @@ def payment_success():
         logger.warning("PayPal order %s status after capture: %s", order_id, status)
         return redirect("/?error=payment_incomplete")
 
-    # Payment confirmed — extend the session budget and unlock pro features
-    current_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
-    session["conversions_budget"] = current_budget + PAID_CONVERSIONS_AMOUNT
-    session["paid"]               = True
-    session["pro_unlocked"]       = True
-
-    # Store invoice details from the capture response
+    # ✅ PAYMENT CONFIRMED - Grant Pro access with JWT token
+    fingerprint = get_client_fingerprint(request)
+    
+    # Create signed JWT
+    pro_token = ProToken.create(fingerprint, int(os.getenv("PAID_CONVERSIONS_AMOUNT", PAID_CONVERSIONS_AMOUNT)))
+    
+    # Grant server-side conversions
+    ConversionCounter.grant_pro(fingerprint, int(os.getenv("PAID_CONVERSIONS_AMOUNT", PAID_CONVERSIONS_AMOUNT)))
+    
+    # Store invoice details in session
     unit    = order_data.get("purchase_units", [{}])[0]
     capture = unit.get("payments", {}).get("captures", [{}])[0]
     session["last_invoice"] = {
@@ -1492,9 +1526,19 @@ def payment_success():
     }
     session.modified = True
 
-    logger.info("PayPal payment COMPLETED for order %s; budget now %d",
-                order_id, session["conversions_budget"])
-    return redirect("/invoice")
+    logger.info("PayPal payment COMPLETED for order %s; Pro access granted", order_id)
+    
+    response = redirect("/invoice")
+    # ✅ Set HttpOnly, Secure, SameSite=Strict Pro token
+    response.set_cookie(
+        "pro_token",
+        pro_token,
+        httponly=True,
+        secure=_is_production,
+        samesite="Strict",
+        max_age=7*24*3600,  # 7 days
+    )
+    return response
 
 
 @app.route("/invoice")
@@ -2704,9 +2748,11 @@ def translate_endpoint():
 FREE_DAILY_TRANSLATIONS = 3
 
 @app.route("/translate-chunk", methods=["POST"])
-@limiter.limit("60 per minute")
+@limiter.limit("3 per minute; 10 per hour")  # Stricter limits
 def translate_chunk():
     try:
+        fingerprint = get_client_fingerprint(request)
+        
         data        = request.get_json(silent=True) or {}
         text        = str(data.get("text", "")).strip()
         target_lang = str(data.get("target_lang", "English")).strip()
@@ -2717,31 +2763,35 @@ def translate_chunk():
         # Normalise: if frontend sent an ISO code (e.g. "fr"), convert to full name ("French")
         target_lang = _LANG_CODE_TO_NAME.get(target_lang, target_lang)
 
-        is_pro = session.get("pro_unlocked", False)
+        # ✅ Check JWT Pro token
+        pro_token = request.cookies.get("pro_token")
+        is_pro = False
+        if pro_token:
+            valid, payload = ProToken.verify(pro_token)
+            if valid and payload.get("fingerprint") == fingerprint:
+                is_pro = True
 
         if not is_pro:
-            today = _datetime.utcnow().strftime("%Y-%m-%d")
-            usage = session.get("translation_usage", {"date": today, "count": 0})
-            if usage.get("date") != today:
-                usage = {"date": today, "count": 0}
-            if usage["count"] >= FREE_DAILY_TRANSLATIONS:
+            # ✅ Check server-side daily quota
+            allowed, used, remaining = TranslationQuota.check_and_increment(
+                fingerprint, 
+                limit=FREE_DAILY_TRANSLATIONS
+            )
+
+            if not allowed:
                 return jsonify({
-                    "error":   "free_limit_reached",
-                    "used":    usage["count"],
+                    "error":   "daily_limit_reached",
+                    "used":    used,
                     "limit":   FREE_DAILY_TRANSLATIONS,
                     "message": f"You've used your {FREE_DAILY_TRANSLATIONS} free daily translations.",
                 }), 402
-            usage["count"] += 1
-            session["translation_usage"] = usage
-            session.modified = True
 
         target_code = _MYMEMORY_LANG_CODE.get(target_lang, target_lang.lower())
         translated  = _ts_translate_text(text, "en", target_code)
 
         remaining = None
         if not is_pro:
-            usage = session.get("translation_usage", {})
-            remaining = max(0, FREE_DAILY_TRANSLATIONS - usage.get("count", 0))
+            remaining = FREE_DAILY_TRANSLATIONS - used
 
         is_rtl = target_lang in _RTL_LANG_NAMES or target_code in {"ar", "he", "ar-SA", "he-IL"}
         return jsonify({"translatedText": translated, "remaining": remaining, "isRtl": is_rtl})
@@ -3363,8 +3413,15 @@ def apply_voucher():
 # ── Redeem voucher ─────────────────────────────────────────────────────────
 
 @app.route("/redeem-voucher", methods=["POST"])
-@limiter.limit("10 per minute")
+@limiter.limit("5 per minute; 10 per hour")  # Stricter limits
 def redeem_voucher():
+    fingerprint = get_client_fingerprint(request)
+    
+    # ✅ Check attempt rate limit and lockout
+    allowed, message = VoucherSecurity.check_attempt(fingerprint)
+    if not allowed:
+        return jsonify({"error": message, "locked": True}), 429  # Too Many Requests
+    
     data = request.get_json(silent=True) or {}
     code = str(data.get("code", "")).strip().upper()
 
@@ -3376,14 +3433,16 @@ def redeem_voucher():
         return jsonify({"error": "Voucher system is not enabled on this server."}), 503
 
     if code not in valid_codes:
+        VoucherSecurity.record_attempt(fingerprint, False)  # ✅ Record failed attempt
         return jsonify({"error": "Invalid voucher code. Please check and try again."}), 400
 
-    # Prevent double-redeem within the same session
+    # Prevent double-redeem in session
     redeemed = session.get("redeemed_vouchers", [])
     if code in redeemed:
+        VoucherSecurity.record_attempt(fingerprint, False)
         return jsonify({"error": "This voucher has already been redeemed in this session."}), 400
 
-    # Grant conversions
+    # Grant conversions server-side
     current_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
     current_used   = session.get("conversions_used",   0)
     new_budget     = current_budget + VOUCHER_GRANT
@@ -3393,8 +3452,10 @@ def redeem_voucher():
     session["redeemed_vouchers"]   = redeemed + [code]
     session.modified = True
 
+    VoucherSecurity.record_attempt(fingerprint, True)  # ✅ Record success
+    
     remaining = new_budget - current_used
-    logger.info("Voucher redeemed: code=%s, granted=%d, new_budget=%d", code, VOUCHER_GRANT, new_budget)
+    logger.info("Voucher redeemed: code=%s, granted=%d", LogSanitizer.sanitize(code), VOUCHER_GRANT)
 
     return jsonify({
         "success":    True,
@@ -3430,6 +3491,12 @@ def robots():
 Allow: /
 Sitemap: https://convertly-web.onrender.com/sitemap.xml
 """, 200, {'Content-Type': 'text/plain'}
+
+
+@app.route("/privacy")
+def privacy():
+    """Privacy Policy page."""
+    return render_template("privacy.html")
 
 
 # ── Cache headers for static files ────────────────────────────────────────
