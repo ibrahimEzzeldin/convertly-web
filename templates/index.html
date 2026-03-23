@@ -6,24 +6,24 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
 
   <!-- Primary SEO -->
-  <title>Convertly — Free PDF Converter, Word to PDF, Translate PDF Online</title>
-  <meta name="description" content="Free online file converter. Convert PDF to Word, Word to PDF, Excel to PDF, JPG to PDF. Translate PDFs in 23 languages. Merge, split, compress, sign PDFs. No sign-up needed.">
+  <title>{{ page_title or "Convertly — Free PDF Converter Online" }}</title>
+  <meta name="description" content="{{ page_description or "Free PDF converter online. Convert PDF to Word, Excel, JPG, and more. Translate PDFs in 23 languages. Merge, split, and compress PDFs. No sign-up needed." }}">
   <meta name="keywords" content="PDF converter, PDF to Word, Word to PDF, Excel to PDF, JPG to PDF, translate PDF, merge PDF, split PDF, compress PDF, free PDF converter, online PDF tool, PDF translator">
   <meta name="author" content="Convertly">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://convertly-web.onrender.com/">
+  <link rel="canonical" content="https://convertly-web.onrender.com{% if tool %}/{{ tool }}{% endif %}">
 
   <!-- Open Graph (Facebook, LinkedIn, WhatsApp preview) -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://convertly-web.onrender.com/">
-  <meta property="og:title" content="Convertly — Free PDF & File Converter Online">
-  <meta property="og:description" content="Convert PDF to Word, translate PDFs in 23 languages, merge, split and compress PDFs. Free, fast, no sign-up needed.">
+  <meta property="og:url" content="https://convertly-web.onrender.com{% if tool %}/{{ tool }}{% endif %}">
+  <meta property="og:title" content="{{ og_title or "Convertly — Free PDF & File Converter Online" }}">
+  <meta property="og:description" content="{{ og_description or "Convert PDF to Word, translate PDFs in 23 languages, merge, split and compress PDFs. Free, fast, no sign-up needed." }}">
   <meta property="og:image" content="https://convertly-web.onrender.com/static/og-image.png">
 
   <!-- Twitter/X Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Convertly — Free PDF Converter Online">
-  <meta name="twitter:description" content="Convert PDF to Word, Word to PDF, translate PDFs in 23 languages. Free, no sign-up needed.">
+  <meta name="twitter:title" content="{{ og_title or "Convertly — Free PDF Converter Online" }}">
+  <meta name="twitter:description" content="{{ og_description or "Convert PDF to Word, Word to PDF, translate PDFs in 23 languages. Free, no sign-up needed." }}">
   <meta name="twitter:image" content="https://convertly-web.onrender.com/static/og-image.png">
 
   <!-- Structured Data (Google Rich Results) -->
@@ -118,6 +118,34 @@
       border: 1px solid #a7f3d0;
     }
     .paid-badge.visible { display: inline-block; }
+
+    /* ── Quota counter in header ── */
+    .quota-counter {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: #f0f2ff;
+      color: #4f6ef7;
+      border: 1px solid #c5caff;
+      transition: all 0.3s ease;
+      cursor: help;
+    }
+    .quota-counter.warn {
+      background: #fffbeb;
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+    .quota-counter.exhausted {
+      background: #fff1f3;
+      border-color: #fda4af;
+      color: #be185d;
+    }
+    .quota-counter.paid {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #10b981;
+    }
 
     /* ── Hero ── */
     .hero {
@@ -271,6 +299,19 @@
     .file-name {
       font-size: 13px; font-weight: 600; color: #4f6ef7;
       margin-top: 8px; word-break: break-all;
+    }
+
+    /* ── Security note in upload zone ── */
+    .security-note {
+      font-size: 11px;
+      color: #10b981;
+      background: #ecfdf5;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+      border: 1px solid #a7f3d0;
+      font-weight: 600;
+      letter-spacing: 0.3px;
     }
 
     /* ── Convert button ── */
@@ -598,6 +639,10 @@
   <div style="display:flex;gap:8px;align-items:center">
     <span class="header-tag">Secured · Fast</span>
     <span class="paid-badge" id="paidBadge">⚡ Pro Unlocked</span>
+    <!-- Conversion counter pill -->
+    <span class="quota-counter" id="quotaCounter" title="Free conversions available">
+      <span id="quotaCounterText">3/3</span>
+    </span>
   </div>
 </header>
 
@@ -796,6 +841,8 @@
       <div class="file-zone-icon" id="zoneIcon">☁️</div>
       <div class="file-zone-title">Drag & drop your file here</div>
       <div class="file-zone-sub">or click to browse</div>
+      <!-- Security message in upload zone -->
+      <div class="security-note">🔒 Files deleted after download · SSL encrypted · Never shared</div>
       <div class="file-name" id="fileName"></div>
     </div>
 
@@ -1880,6 +1927,36 @@
 
   // ── On load ──────────────────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", async () => {
+    // ── Pre-select tool from URL ────────────────────────────────────────────
+    const pathParts = window.location.pathname.split("/").filter(p => p);
+    if (pathParts.length === 1 && pathParts[0] !== "share" && pathParts[0] !== "invoice" && pathParts[0] !== "privacy") {
+      const toolSlug = pathParts[0];
+      const toolBtn = document.querySelector(`[data-mode="${toolSlug}"]`);
+      if (toolBtn) {
+        document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+        toolBtn.classList.add("active");
+        activeMode = toolSlug;
+        
+        // Show/hide appropriate zones
+        const modes = {
+          "merge-pdf": "mergeZone", "split-pdf": "splitOptions", "remove-pages": "removeOptions",
+          "extract-pages": "extractOptions", "organize-pdf": "organizeZone", "compress-pdf": "compressOptions",
+          "pdf-to-jpg": "jpgOptions", "jpg-to-pdf": "imgZone", "watermark-pdf": "watermarkOptions",
+          "rotate-pdf": "rotateOptions", "unlock-pdf": "unlockOptions", "protect-pdf": "protectOptions",
+          "page-numbers": "pageNumOptions", "translate-pdf": "translateOptions", "sign-pdf": "signOptions",
+          "edit-pdf": "editOptions"
+        };
+        
+        const zoneId = modes[toolSlug];
+        if (zoneId) {
+          document.getElementById(zoneId).style.display = "block";
+          document.getElementById("dropZone").style.display = "none";
+        } else {
+          document.getElementById("dropZone").style.display = "block";
+        }
+      }
+    }
+    
     document.getElementById("convertBtn").addEventListener("click", doConvert);
     document.getElementById("modalCancel").addEventListener("click", closeUpgradeModal);
     document.getElementById("paypalCheckoutBtn").addEventListener("click", startPaypalCheckout);
@@ -1957,6 +2034,42 @@
       if (i < scaledUsed) pip.classList.add(paid ? "paid" : "used");
       pipsEl.appendChild(pip);
     }
+
+    // ✅ Update header quota counter
+    updateHeaderQuotaCounter(remaining, used, budget, paid);
+  }
+
+  // ── Update header quota counter ────────────────────────────────────────────
+  function updateHeaderQuotaCounter(remaining, used, budget, paid) {
+    const counter = document.getElementById("quotaCounter");
+    if (!counter) return;
+
+    // Update text
+    const counterText = document.getElementById("quotaCounterText");
+    if (counterText) {
+      counterText.textContent = `${used}/${budget}`;
+    }
+
+    // Update color based on status
+    counter.className = "quota-counter";
+    if (paid) {
+      counter.classList.add("paid");
+      counter.title = "✨ Pro Unlocked — Unlimited conversions";
+    } else if (remaining <= 0) {
+      counter.classList.add("exhausted");
+      counter.title = "No free conversions left — Upgrade to continue";
+    } else if (remaining === 1) {
+      counter.classList.add("warn");
+      counter.title = "1 free conversion left — Upgrade to get 20 more for $2";
+    } else {
+      counter.title = `${remaining} free conversion${remaining !== 1 ? "s" : ""} available`;
+    }
+  }
+
+  // ── Add paid class to quota counter ────────────────────────────────────────
+  function addPaidClassToQuotaCounter() {
+    const counter = document.getElementById("quotaCounter");
+    if (counter) counter.classList.add("paid");
   }
 
   // ── Mode selection ────────────────────────────────────────────────────────
@@ -1965,6 +2078,9 @@
       document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       activeMode = btn.dataset.mode;
+
+      // ✅ Update URL to tool-specific route (for bookmarking/sharing)
+      window.history.pushState({ tool: activeMode }, "", `/${activeMode}`);
 
       const isMerge    = activeMode === "merge-pdf";
       const isSplit    = activeMode === "split-pdf";

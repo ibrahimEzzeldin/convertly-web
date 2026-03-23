@@ -386,9 +386,58 @@ def validate_file(file, allowed_extensions, max_size):
 
 # ── Routes ─────────────────────────────────────────────────────────────────
 
+# Tool metadata for individual pages (SEO, categories, descriptions)
+TOOL_METADATA = {
+    "pdf-to-word":     {"title": "Convert PDF to Word Free — Convertly", "desc": "Free online PDF to Word converter. Convert PDFs to editable Word documents instantly. No sign-up required.", "category": "Convert", "emoji": "📄"},
+    "word-to-pdf":     {"title": "Convert Word to PDF Free — Convertly", "desc": "Free Word to PDF converter. Convert .docx and .doc files to PDF online instantly, no registration needed.", "category": "Convert", "emoji": "📝"},
+    "pdf-to-excel":    {"title": "Convert PDF to Excel Free — Convertly", "desc": "Extract tables from PDFs to Excel. Free online PDF to Excel converter. Convert instantly, no sign-up.", "category": "Convert", "emoji": "📊"},
+    "excel-to-pdf":    {"title": "Convert Excel to PDF Free — Convertly", "desc": "Free Excel to PDF converter. Convert spreadsheets to PDF online instantly. No registration required.", "category": "Convert", "emoji": "📈"},
+    "pdf-to-jpg":      {"title": "Convert PDF to JPG Free — Convertly", "desc": "Free PDF to JPG converter. Convert PDF pages to images instantly. Perfect for sharing and viewing.", "category": "Convert", "emoji": "🖼️"},
+    "jpg-to-pdf":      {"title": "Convert JPG to PDF Free — Convertly", "desc": "Free JPG to PDF converter. Turn images into a single PDF file instantly. No sign-up needed.", "category": "Convert", "emoji": "🗃️"},
+    "merge-pdf":       {"title": "Merge PDF Free — Convertly", "desc": "Free PDF merger. Combine multiple PDF files into one instantly. No registration, no ads.", "category": "Organise", "emoji": "📎"},
+    "split-pdf":       {"title": "Split PDF Free — Convertly", "desc": "Free online PDF splitter. Extract specific pages or page ranges from PDF files instantly.", "category": "Organise", "emoji": "✂️"},
+    "compress-pdf":    {"title": "Compress PDF Free — Convertly", "desc": "Free PDF compressor. Reduce PDF file size instantly while maintaining quality. No sign-up needed.", "category": "Organise", "emoji": "🗜️"},
+    "remove-pages":    {"title": "Remove Pages from PDF Free — Convertly", "desc": "Free PDF page remover. Delete unwanted pages from your PDF instantly. No registration required.", "category": "Organise", "emoji": "🗑️"},
+    "extract-pages":   {"title": "Extract PDF Pages Free — Convertly", "desc": "Free PDF page extractor. Keep only the pages you need from your PDF file. Instant, no sign-up.", "category": "Organise", "emoji": "📤"},
+    "organize-pdf":    {"title": "Organize PDF Pages Free — Convertly", "desc": "Free PDF organizer. Drag and drop to reorder pages in your PDF. Instant results, no registration.", "category": "Organise", "emoji": "📐"},
+    "rotate-pdf":      {"title": "Rotate PDF Pages Free — Convertly", "desc": "Free PDF rotator. Rotate PDF pages any direction instantly. Perfect for fixing orientation issues.", "category": "Organise", "emoji": "🔄"},
+    "page-numbers":    {"title": "Add Page Numbers to PDF Free — Convertly", "desc": "Free page number stamper. Add numbers to every page of your PDF. Quick, easy, no sign-up.", "category": "Organise", "emoji": "🔢"},
+    "watermark-pdf":   {"title": "Add Watermark to PDF Free — Convertly", "desc": "Free PDF watermark tool. Stamp text on every page of your PDF. No registration required.", "category": "Edit & Sign", "emoji": "💧"},
+    "edit-pdf":        {"title": "Edit PDF Free — Convertly", "desc": "Free online PDF editor. Add and edit text on your PDF pages instantly. No subscription needed.", "category": "Edit & Sign", "emoji": "✏️"},
+    "sign-pdf":        {"title": "Sign PDF Free — Convertly", "desc": "Free PDF signature tool. Draw, type, or upload your signature to PDF files. Instant, no registration.", "category": "Edit & Sign", "emoji": "✍️"},
+    "translate-pdf":   {"title": "Translate PDF Free — AI Powered — Convertly", "desc": "Free AI-powered PDF translator. Translate PDFs into 23 languages instantly. No sign-up required.", "category": "Edit & Sign", "emoji": "🌐"},
+    "unlock-pdf":      {"title": "Unlock PDF Free — Convertly", "desc": "Free PDF password remover. Remove password protection from PDF files instantly. No sign-up needed.", "category": "Protect", "emoji": "🔓"},
+    "protect-pdf":     {"title": "Protect PDF with Password Free — Convertly", "desc": "Free PDF password protector. Add password protection to your PDF files instantly. Secure & easy.", "category": "Protect", "emoji": "🔐"},
+}
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    """Homepage with homepage SEO metadata."""
+    return render_template("index.html", 
+        tool=None,
+        page_title="Convertly — Free PDF Converter Online",
+        page_description="Free PDF converter online. Convert PDF to Word, Excel, JPG, and more. Translate PDFs in 23 languages. Merge, split, and compress PDFs. No sign-up needed.",
+        og_title="Convertly — Free PDF Converter Online",
+        og_description="Convert PDFs, translate to 23 languages, merge, split, compress. Free, instant, no registration."
+    )
+
+@app.route("/<tool_slug>")
+def tool_page(tool_slug):
+    """Individual tool page with unique SEO metadata."""
+    # Normalize the slug (convert underscores to hyphens if needed)
+    tool_slug = tool_slug.lower().replace("_", "-")
+    
+    if tool_slug not in TOOL_METADATA:
+        return redirect("/")
+    
+    meta = TOOL_METADATA[tool_slug]
+    return render_template("index.html",
+        tool=tool_slug,
+        page_title=meta["title"],
+        page_description=meta["desc"],
+        og_title=meta["title"],
+        og_description=meta["desc"]
+    )
 
 
 @app.route("/share")
