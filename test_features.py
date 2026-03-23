@@ -19,10 +19,14 @@ def get_session():
     return s, token
 
 def reset_conversion_quota():
-    """Reset the conversion quota for testing via API."""
+    """Reset the conversion quota for testing via API (requires TEST_SECRET env var)."""
+    import os
+    secret = os.getenv("TEST_SECRET", "")
+    if not secret:
+        return  # Skip if no secret configured
     s, tok = get_session()
     requests.post(BASE + "/test-reset-quota",
-                  data={"csrf_token": tok},
+                  data={"csrf_token": tok, "secret": secret},
                   headers={"X-CSRFToken": tok})
 
 def make_minimal_pdf():

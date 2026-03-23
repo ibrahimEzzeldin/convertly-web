@@ -424,10 +424,14 @@ def index():
 
 @app.route("/test-reset-quota", methods=["POST"])
 def test_reset_quota():
-    """Reset conversion quota for testing."""
+    """Reset conversion quota for testing. Requires secret key."""
+    secret = request.form.get("secret") or request.headers.get("X-Test-Secret")
+    expected = os.getenv("TEST_SECRET", "")
+    if not expected or secret != expected:
+        return jsonify({"error": "Unauthorized"}), 401
     fingerprint = get_client_fingerprint(request)
     ConversionCounter.reset(fingerprint)
-    return jsonify({"reset": True, "fingerprint": fingerprint})
+    return jsonify({"reset": True})
 
 @app.route("/<tool_slug>")
 def tool_page(tool_slug):
