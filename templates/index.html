@@ -217,6 +217,36 @@
     .quota-pip.used { background: #4f6ef7; }
     .quota-pip.paid { background: #10b981; }
 
+    /* ── Category tabs ── */
+    .category-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 0 16px 12px;
+      flex-wrap: wrap;
+    }
+    .category-tab {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1.5px solid #e8eaf0;
+      background: #fff;
+      color: #6b7280;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.18s;
+    }
+    .category-tab:hover {
+      border-color: #4f6ef7;
+      background: #f0f2ff;
+      color: #1a1d2e;
+    }
+    .category-tab.active {
+      border-color: #4f6ef7;
+      background: #4f6ef7;
+      color: #fff;
+    }
+
     /* ── Mode grid ── */
     .section-label {
       font-size: 11px;
@@ -667,7 +697,16 @@
 
     <!-- Mode selector -->
     <div class="section-label">1 &nbsp;·&nbsp; Choose conversion type</div>
-    <div class="mode-grid">
+    
+    <!-- Tool categories tabs -->
+    <div class="category-tabs" id="categoryTabs">
+      <button class="category-tab active" data-category="Convert">Convert</button>
+      <button class="category-tab" data-category="Organise">Organise</button>
+      <button class="category-tab" data-category="Edit & Sign">Edit & Sign</button>
+      <button class="category-tab" data-category="Protect">Protect</button>
+    </div>
+
+    <div class="mode-grid"  id="modeGrid">
 
       <button class="mode-btn active" data-mode="pdf-to-word"
         style="--color:#4f6ef7;--light:#eef1ff">
@@ -2071,6 +2110,43 @@
     const counter = document.getElementById("quotaCounter");
     if (counter) counter.classList.add("paid");
   }
+
+  // ── Tool categories mapping (from app.py TOOL_METADATA) ────────────────────
+  const TOOL_CATEGORIES = {
+    "pdf-to-word": "Convert", "word-to-pdf": "Convert", "pdf-to-excel": "Convert", "excel-to-pdf": "Convert", "pdf-to-jpg": "Convert", "jpg-to-pdf": "Convert",
+    "merge-pdf": "Organise", "split-pdf": "Organise", "compress-pdf": "Organise", "remove-pages": "Organise", "extract-pages": "Organise", "organize-pdf": "Organise", "rotate-pdf": "Organise", "page-numbers": "Organise",
+    "watermark-pdf": "Edit & Sign", "edit-pdf": "Edit & Sign", "sign-pdf": "Edit & Sign", "translate-pdf": "Edit & Sign",
+    "protect-pdf": "Protect", "unlock-pdf": "Protect"
+  };
+
+  // ── Category tab handling ──────────────────────────────────────────────────
+  let activeCategory = sessionStorage.getItem("activeCategory") || "Convert";
+
+  // Set data-category on mode buttons based on TOOL_CATEGORIES mapping
+  document.querySelectorAll(".mode-btn").forEach(btn => {
+    const mode = btn.dataset.mode;
+    const category = TOOL_CATEGORIES[mode] || "Convert";
+    btn.dataset.category = category;
+    if (category !== activeCategory) btn.style.display = "none";
+  });
+
+  // Category tab click handlers
+  document.querySelectorAll(".category-tab").forEach(tab => {
+    if (tab.dataset.category === activeCategory) tab.classList.add("active");
+    tab.addEventListener("click", () => {
+      activeCategory = tab.dataset.category;
+      sessionStorage.setItem("activeCategory", activeCategory);
+      
+      // Update tab highlight
+      document.querySelectorAll(".category-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      
+      // Filter tool buttons
+      document.querySelectorAll(".mode-btn").forEach(btn => {
+        btn.style.display = btn.dataset.category === activeCategory ? "" : "none";
+      });
+    });
+  });
 
   // ── Mode selection ────────────────────────────────────────────────────────
   document.querySelectorAll(".mode-btn").forEach(btn => {
