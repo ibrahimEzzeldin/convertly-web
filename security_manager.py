@@ -56,6 +56,11 @@ class SessionStore:
         for k in expired:
             self._data.pop(k, None)
             self._expiry.pop(k, None)
+    
+    def clear_all(self):
+        """Clear all data (used for testing)."""
+        self._data.clear()
+        self._expiry.clear()
 
 # Global store instance
 _session_store = SessionStore()
@@ -144,6 +149,17 @@ class ConversionCounter:
         
         logger.info("Pro access granted: fingerprint=%s, total_budget=%d", 
                    fingerprint, data["budget"])
+
+    @staticmethod
+    def reset(fingerprint: str):
+        """Reset conversion counter for a fingerprint (used for testing)."""
+        key = ConversionCounter.get_key(fingerprint)
+        _session_store.delete(key)
+
+    @staticmethod
+    def reset_all():
+        """Reset ALL conversion counters (used for testing)."""
+        _session_store.clear_all()
 
 
 # ─── TRANSLATION QUOTA (SERVER-SIDE) ───────────────────────────────────────

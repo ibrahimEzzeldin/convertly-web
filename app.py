@@ -75,6 +75,7 @@ else:
 
 # ── App setup ──────────────────────────────────────────────────────────────
 app = Flask(__name__)
+app.debug = os.getenv("FLASK_DEBUG", "False").lower() == "true"
 app.config["UPLOAD_FOLDER"]      = os.getenv("UPLOAD_FOLDER", "uploads")
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", 32 * 1024 * 1024))
 app.config["MAX_FILE_SIZE"]      = int(os.getenv("MAX_FILE_SIZE",      32 * 1024 * 1024))
@@ -420,6 +421,13 @@ def index():
         og_title="Convertly — Free PDF Converter Online",
         og_description="Convert PDFs, translate to 23 languages, merge, split, compress. Free, instant, no registration."
     )
+
+@app.route("/test-reset-quota", methods=["POST"])
+def test_reset_quota():
+    """Reset conversion quota for testing."""
+    fingerprint = get_client_fingerprint(request)
+    ConversionCounter.reset(fingerprint)
+    return jsonify({"reset": True, "fingerprint": fingerprint})
 
 @app.route("/<tool_slug>")
 def tool_page(tool_slug):

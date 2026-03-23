@@ -15,5 +15,9 @@ from app import app
 host = os.getenv("HOST", "0.0.0.0")
 port = int(os.getenv("FLASK_PORT", 5000))
 
-print(f"Starting Convertly on http://{host}:{port}")
-serve(app, host=host, port=port, threads=4)
+if os.getenv("FLASK_DEBUG", "False").lower() == "true":
+    print(f"Starting Convertly in DEBUG mode on http://{host}:{port}")
+    app.run(host=host, port=port, debug=True, threaded=True)
+else:
+    print(f"Starting Convertly on http://{host}:{port}")
+    serve(app, host=host, port=port, threads=4)

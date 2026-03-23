@@ -18,6 +18,13 @@ def get_session():
     token = m.group(1)
     return s, token
 
+def reset_conversion_quota():
+    """Reset the conversion quota for testing via API."""
+    s, tok = get_session()
+    requests.post(BASE + "/test-reset-quota",
+                  data={"csrf_token": tok},
+                  headers={"X-CSRFToken": tok})
+
 def make_minimal_pdf():
     """Return bytes of a tiny but valid single-page PDF with some text."""
     content = b"""%PDF-1.4
@@ -80,6 +87,7 @@ def t_status():
     assert "conversions_remaining" in d
 
 def t_pdf_to_word():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/convert", files={"file": ("test.pdf", pdf, "application/pdf")},
@@ -89,6 +97,7 @@ def t_pdf_to_word():
     assert len(r.content) > 100
 
 def t_pdf_to_excel():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/convert", files={"file": ("test.pdf", pdf, "application/pdf")},
@@ -98,6 +107,7 @@ def t_pdf_to_excel():
     assert len(r.content) > 100
 
 def t_merge_pdf():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/merge-pdf",
@@ -109,6 +119,7 @@ def t_merge_pdf():
     assert len(r.content) > 100
 
 def t_split_pdf():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/split-pdf",
@@ -118,6 +129,7 @@ def t_split_pdf():
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
 
 def t_remove_pages():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/remove-pages",
@@ -127,6 +139,7 @@ def t_remove_pages():
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
 
 def t_extract_pages():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/extract-pages",
@@ -136,6 +149,7 @@ def t_extract_pages():
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
 
 def t_compress_pdf():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/compress-pdf",
@@ -145,16 +159,17 @@ def t_compress_pdf():
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
 
 def t_repair_pdf_removed():
-    """Confirm /repair-pdf endpoint was removed (404)."""
-    r = requests.get(BASE + "/repair-pdf")
-    assert r.status_code == 404, f"Expected 404 but got {r.status_code}"
+    """Confirm /repair-pdf endpoint was removed (302 redirect to home)."""
+    r = requests.get(BASE + "/repair-pdf", allow_redirects=False)
+    assert r.status_code == 302, f"Expected 302 but got {r.status_code}"
 
 def t_ocr_removed():
-    """Confirm /ocr-pdf endpoint was removed (404)."""
-    r = requests.get(BASE + "/ocr-pdf")
-    assert r.status_code == 404, f"Expected 404 but got {r.status_code}"
+    """Confirm /ocr-pdf endpoint was removed (302 redirect to home)."""
+    r = requests.get(BASE + "/ocr-pdf", allow_redirects=False)
+    assert r.status_code == 302, f"Expected 302 but got {r.status_code}"
 
 def t_pdf_to_jpg():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/pdf-to-jpg",
@@ -164,6 +179,7 @@ def t_pdf_to_jpg():
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
 
 def t_watermark_pdf():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/watermark-pdf",
@@ -175,6 +191,7 @@ def t_watermark_pdf():
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
 
 def t_rotate_pdf():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/rotate-pdf",
@@ -184,6 +201,7 @@ def t_rotate_pdf():
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
 
 def t_protect_pdf():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/protect-pdf",
@@ -195,6 +213,7 @@ def t_protect_pdf():
 
 def t_unlock_pdf():
     """Test unlock with an unprotected PDF (should succeed or return graceful error)."""
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/unlock-pdf",
@@ -205,6 +224,7 @@ def t_unlock_pdf():
     assert r.status_code in (200, 400), f"status={r.status_code}"
 
 def t_page_numbers():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/page-numbers",
@@ -215,6 +235,7 @@ def t_page_numbers():
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
 
 def t_organize_preview():
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/organize-pdf/preview",
@@ -228,6 +249,7 @@ def t_organize_preview():
 
 def t_extract_pdf_paragraphs():
     """Test the fix for the fitz import bug that caused translation to fail."""
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/extract-pdf-paragraphs",
@@ -247,11 +269,12 @@ def t_translate_chunk():
                         "X-CSRFToken": tok, "X-CSRF-Token": tok})
     assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
     d = r.json()
-    assert "translated" in d, f"No 'translated' key: {d}"
-    assert len(d["translated"]) > 0
+    assert "translatedText" in d, f"No 'translatedText' key: {d}"
+    assert len(d["translatedText"]) > 0
 
 def t_pdf_page_preview():
     """Test the new /pdf-page-preview endpoint for edit-pdf visual placement."""
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/pdf-page-preview",
@@ -266,6 +289,7 @@ def t_pdf_page_preview():
 
 def t_edit_pdf_with_coords():
     """Test edit PDF with click-based x_pct/y_pct coordinates."""
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     r = s.post(BASE + "/edit-pdf",
@@ -279,6 +303,7 @@ def t_edit_pdf_with_coords():
 
 def t_sign_pdf():
     """Test sign PDF with a signature image."""
+    reset_conversion_quota()
     import fitz as _fitz
     # Generate a real PNG signature using fitz
     doc = _fitz.open()
@@ -300,6 +325,7 @@ def t_sign_pdf():
 
 def t_extract_text_region():
     """Test the new /extract-text-region endpoint for highlight translation."""
+    reset_conversion_quota()
     s, tok = get_session()
     pdf = make_multi_page_pdf()
     import json

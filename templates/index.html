@@ -678,8 +678,12 @@
 
 <!-- Hero -->
 <div class="hero">
+  {% if tool %}
+  <h1>{{ tool_metadata.emoji }} {{ tool_metadata.title.split(' — ')[0] }}</h1>
+  {% else %}
   <h1>Convert any<br><span>document</span> format.</h1>
-  <p>PDF, Word, and Excel — convert instantly from any device, no sign-up needed.</p>
+  {% endif %}
+  <p>{% if tool %}{{ tool_metadata.desc }}{% else %}PDF, Word, and Excel — convert instantly from any device, no sign-up needed.{% endif %}</p>
 </div>
 
 <!-- Main -->
