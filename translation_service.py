@@ -13,17 +13,22 @@ MAX_CHUNK_SIZE = 500
 MYMEMORY_EMAIL = os.environ.get("MYMEMORY_EMAIL", "")
 
 # Maps short ISO codes to locale codes expected by MyMemory
+# MyMemory API requires bare language codes (ar, en, fr, etc.) not region-specific (ar-SA, en-GB, fr-FR)
 LANG_CODES = {
-    "ar": "ar-SA", "fr": "fr-FR", "es": "es-ES", "de": "de-DE",
-    "it": "it-IT", "pt": "pt-BR", "ru": "ru-RU", "zh": "zh-CN",
-    "zh-TW": "zh-TW", "ja": "ja-JP", "ko": "ko-KR", "tr": "tr-TR",
-    "nl": "nl-NL", "pl": "pl-PL", "hi": "hi-IN", "uk": "uk-UA",
-    "sv": "sv-SE", "no": "no-NO", "da": "da-DK", "el": "el-GR",
-    "he": "he-IL", "id": "id-ID", "vi": "vi-VN", "en": "en-GB",
+    "ar": "ar", "fr": "fr", "es": "es", "de": "de",
+    "it": "it", "pt": "pt", "ru": "ru", "zh": "zh",
+    "zh-TW": "zh", "ja": "ja", "ko": "ko", "tr": "tr",
+    "nl": "nl", "pl": "pl", "hi": "hi", "uk": "uk",
+    "sv": "sv", "no": "no", "da": "da", "el": "el",
+    "he": "he", "id": "id", "vi": "vi", "en": "en",
 }
 
 
 def _map(code: str) -> str:
+    """Map language codes to MyMemory-compatible bare codes.
+    
+    MyMemory only recognizes simple language codes like 'ar', 'en', 'fr', not region variants.
+    """
     if not code or not isinstance(code, str):
         return code
 
@@ -31,36 +36,22 @@ def _map(code: str) -> str:
     if not code:
         return code
 
-    # direct match (case-sensitive and case-insensitive)
+    # Direct match in LANG_CODES
     if code in LANG_CODES:
         return LANG_CODES[code]
-    if code.lower() in LANG_CODES:
-        return LANG_CODES[code.lower()]
+    
+    # Case-insensitive match
+    code_lower = code.lower()
+    if code_lower in LANG_CODES:
+        return LANG_CODES[code_lower]
 
-    normalized = code.lower()
-    aliases = {
-        "en-us": "en-GB", "en-gb": "en-GB",
-        "pt-br": "pt-BR", "pt-pt": "pt-BR",
-        "zh-cn": "zh-CN", "zh-tw": "zh-TW",
-        "ar-sa": "ar-SA", "ru-ru": "ru-RU",
-        "ja-jp": "ja-JP", "ko-kr": "ko-KR",
-        "tr-tr": "tr-TR", "nl-nl": "nl-NL",
-        "pl-pl": "pl-PL", "hi-in": "hi-IN",
-        "uk-ua": "uk-UA", "sv-se": "sv-SE",
-        "no-no": "no-NO", "da-dk": "da-DK",
-        "el-gr": "el-GR", "he-il": "he-IL",
-        "id-id": "id-ID", "vi-vn": "vi-VN",
-    }
+    # For region-coded inputs like "en-US", "zh-CN", extract base and look up
+    if "-" in code_lower:
+        base = code_lower.split("-")[0]
+        if base in LANG_CODES:
+            return LANG_CODES[base]
 
-    if normalized in aliases:
-        return aliases[normalized]
-
-    # Fall back to basic version for unknown region-coded languages
-    if "-" in code:
-        base, region = code.split("-", 1)
-        if base.lower() in LANG_CODES:
-            return LANG_CODES[base.lower()]
-
+    # Fallback: return as-is
     return code
 
 
