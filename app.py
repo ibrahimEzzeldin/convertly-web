@@ -2821,8 +2821,9 @@ def translate_chunk():
         if not text:
             return jsonify({"error": "No text provided."}), 400
 
-        # Normalise: if frontend sent an ISO code (e.g. "fr"), convert to full name ("French")
-        target_lang = _LANG_CODE_TO_NAME.get(target_lang, target_lang)
+        # Normalize both language names and shorthand codes
+        normalized_lang = _LANG_CODE_TO_NAME.get(target_lang) or _LANG_CODE_TO_NAME.get(target_lang.lower())
+        target_lang = normalized_lang or target_lang
 
         # ✅ Check JWT Pro token
         pro_token = request.cookies.get("pro_token")
@@ -2841,20 +2842,20 @@ def translate_chunk():
 
             if not allowed:
                 return jsonify({
-                    "error":   "daily_limit_reached",
+                    "error":   "free_limit_reached",
                     "used":    used,
                     "limit":   FREE_DAILY_TRANSLATIONS,
                     "message": f"You've used your {FREE_DAILY_TRANSLATIONS} free daily translations.",
                 }), 402
 
-        target_code = _MYMEMORY_LANG_CODE.get(target_lang, target_lang.lower())
+        target_code = _MYMEMORY_LANG_CODE.get(target_lang) or _MYMEMORY_LANG_CODE.get(target_lang.lower()) or target_lang.lower()
         translated  = _ts_translate_text(text, "en", target_code)
 
         remaining = None
         if not is_pro:
             remaining = FREE_DAILY_TRANSLATIONS - used
 
-        is_rtl = target_lang in _RTL_LANG_NAMES or target_code in {"ar", "he", "ar-SA", "he-IL"}
+        is_rtl = target_lang in _RTL_LANG_NAMES or target_code in {"ar", "he", "ar-SA", "he-IL", "ar-sa", "he-il"}
         return jsonify({"translatedText": translated, "remaining": remaining, "isRtl": is_rtl})
 
     except Exception as exc:

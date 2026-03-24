@@ -276,6 +276,23 @@ def t_translate_chunk():
     assert "translatedText" in d, f"No 'translatedText' key: {d}"
     assert len(d["translatedText"]) > 0
 
+
+def t_translate_chunk_quota_error():
+    s, tok = get_session()
+    for i in range(3):
+        r = s.post(BASE + "/translate-chunk",
+                   json={"text": f"Count {i+1}", "target_lang": "French", "csrf_token": tok},
+                   headers={"Content-Type": "application/json", "X-CSRFToken": tok, "X-CSRF-Token": tok})
+        assert r.status_code == 200, f"status={r.status_code} body={r.text[:200]}"
+
+    r = s.post(BASE + "/translate-chunk",
+               json={"text": "Should be blocked", "target_lang": "French", "csrf_token": tok},
+               headers={"Content-Type": "application/json", "X-CSRFToken": tok, "X-CSRF-Token": tok})
+    assert r.status_code == 402, f"status={r.status_code} body={r.text[:200]}"
+    d = r.json()
+    assert d.get("error") == "free_limit_reached", f"expected free_limit_reached but got {d}"
+
+
 def t_pdf_page_preview():
     """Test the new /pdf-page-preview endpoint for edit-pdf visual placement."""
     reset_conversion_quota()

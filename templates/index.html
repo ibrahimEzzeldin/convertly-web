@@ -4166,7 +4166,7 @@
         const d2  = await r2.json().catch(() => ({}));
 
         // Free limit reached — show paywall
-        if (r2.status === 402 && d2.error === "free_limit_reached") {
+        if (r2.status === 402 && (d2.error === "free_limit_reached" || d2.error === "daily_limit_reached")) {
           showTranslationLimitModal(d2.used, d2.limit);
           return;
         }
