@@ -549,6 +549,24 @@
   background: var(--surface-3);
 }
 
+/* ── Translate page picker tiles ─────────────────────── */
+.trans-page-tile {
+  cursor: pointer;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 6px 6px;
+  text-align: center;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+  position: relative;
+}
+.trans-page-tile:hover { border-color: var(--border-3); }
+.trans-page-tile.sel { border-color: var(--accent); background: rgba(163,230,53,.08); }
+.trans-page-tile .tp-icon { font-size: 24px; display: block; margin-bottom: 4px; }
+.trans-page-tile .tp-num  { font-size: 11px; color: var(--text-2); display: block; }
+.trans-page-tile .tp-chk  { position: absolute; top: 4px; right: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: #000; font-size: 9px; font-weight: 700; display: none; align-items: center; justify-content: center; }
+.trans-page-tile.sel .tp-chk { display: flex; }
+
 /* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 600px) {
   .hero { padding: 56px 16px 40px; }
@@ -1212,34 +1230,48 @@
   </div>
 </div>
 
-<!-- ── Translate Scope Dialog ───────────────────────────── -->
+<!-- ── Translate Scope Dialog (visual page picker) ──────── -->
 <div class="overlay" id="trans-scope-overlay" style="display:none">
-  <div class="modal" style="max-width:440px">
-    <div class="modal-glyph">🌐</div>
-    <h2 style="font-size:18px;margin-bottom:8px">What would you like to translate?</h2>
-    <div style="display:flex;flex-direction:column;gap:10px;margin:18px 0">
-      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer" id="trans-all-label">
-        <input type="radio" name="trans-scope" value="all" id="trans-scope-all" checked style="accent-color:var(--accent);width:16px;height:16px">
-        <div>
-          <div style="font-weight:500;font-size:14px">Full document</div>
-          <div style="font-size:12px;color:var(--muted)">Translate every page</div>
+  <div class="modal" style="max-width:560px;width:95vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-shrink:0">
+      <div>
+        <div style="font-size:26px;margin-bottom:4px">🌐</div>
+        <h2 style="font-size:18px;margin:0 0 3px">Translate PDF</h2>
+        <p id="trans-lang-label" style="font-size:12px;color:var(--muted);margin:0">Detecting language…</p>
+      </div>
+      <button type="button" id="trans-scope-close-btn" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:2px 4px;margin-top:2px">✕</button>
+    </div>
+
+    <!-- Mode tabs -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;flex-shrink:0;background:var(--surface-3);padding:3px;border-radius:6px">
+      <button type="button" id="trans-mode-all-btn" style="flex:1;padding:8px 10px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;background:var(--accent);color:#000;transition:all .15s">📄 Full Document</button>
+      <button type="button" id="trans-mode-pages-btn" style="flex:1;padding:8px 10px;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;background:transparent;color:var(--text-2);transition:all .15s">📋 Select Pages</button>
+    </div>
+
+    <!-- Full doc info -->
+    <div id="trans-all-info" style="flex-shrink:0;padding:12px 14px;background:var(--surface-3);border-radius:6px;font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:14px">
+      ✓ All pages will be translated from the selected language to your chosen language.
+    </div>
+
+    <!-- Page picker (Select Pages mode) -->
+    <div id="trans-page-picker" style="display:none;flex:1;overflow-y:auto;min-height:0;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0">
+        <span id="trans-selected-count" style="font-size:12px;color:var(--muted)">Loading pages…</span>
+        <div style="display:flex;gap:6px">
+          <button type="button" id="trans-select-all-btn" style="font-size:11px;padding:3px 10px;border:1px solid var(--border-2);border-radius:4px;background:var(--surface-3);color:var(--text-2);cursor:pointer">All</button>
+          <button type="button" id="trans-deselect-all-btn" style="font-size:11px;padding:3px 10px;border:1px solid var(--border-2);border-radius:4px;background:var(--surface-3);color:var(--text-2);cursor:pointer">None</button>
         </div>
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer" id="trans-pages-label">
-        <input type="radio" name="trans-scope" value="pages" id="trans-scope-pages" style="accent-color:var(--accent);width:16px;height:16px">
-        <div style="flex:1">
-          <div style="font-weight:500;font-size:14px">Specific pages</div>
-          <div style="font-size:12px;color:var(--muted)">e.g. 1-3, 5, 7</div>
-        </div>
-      </label>
-      <div id="trans-pages-range-wrap" style="display:none;padding:0 4px">
-        <input type="text" id="trans-pages-range" placeholder="e.g. 1-3, 5, 7"
-               style="width:100%;padding:9px 12px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;outline:none">
+      </div>
+      <div id="trans-page-tiles" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px">
+        <div style="grid-column:1/-1;text-align:center;padding:20px;font-size:13px;color:var(--muted)">Loading page list…</div>
       </div>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button type="button" id="trans-scope-cancel" style="padding:9px 18px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text-2);cursor:pointer;font-size:13px">Cancel</button>
-      <button type="button" id="trans-scope-confirm" style="padding:9px 22px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-weight:600;cursor:pointer;font-size:13px">Start Translation</button>
+
+    <!-- Footer -->
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;padding-top:12px;border-top:1px solid var(--border)">
+      <button type="button" id="trans-scope-cancel" style="padding:10px 18px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text-2);cursor:pointer;font-size:13px">Cancel</button>
+      <button type="button" id="trans-scope-confirm" style="padding:10px 24px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-weight:700;cursor:pointer;font-size:13px">Start Translation →</button>
     </div>
   </div>
 </div>
@@ -1257,8 +1289,10 @@
     <div style="flex:1;overflow-y:auto;min-height:0">
       <div style="position:relative;display:inline-block;cursor:crosshair;max-width:100%;width:100%" id="place-preview-wrap">
         <img id="place-preview-img" style="width:100%;display:block;border-radius:8px;border:1px solid var(--border)" alt="PDF page">
-        <!-- Marker dot -->
-        <div id="place-marker" style="display:none;position:absolute;width:22px;height:22px;border:3px solid #ef4444;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 3px rgba(239,68,68,.25)"></div>
+        <!-- Signature marker dot (sign-pdf) -->
+        <div id="place-marker" style="display:none;position:absolute;width:22px;height:22px;border:3px solid var(--accent);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 3px rgba(163,230,53,.25)"></div>
+        <!-- Edit text line indicator (edit-pdf) -->
+        <div id="place-edit-line" style="display:none;position:absolute;left:4%;right:4%;height:3px;background:var(--accent);pointer-events:none;border-radius:2px;box-shadow:0 0 8px rgba(163,230,53,.5);transform:translateY(-50%)"></div>
       </div>
     </div>
 
@@ -1593,10 +1627,10 @@ function handleSubmit(e) {
     return;
   }
 
-  /* Translate PDF: scope dialog → AJAX with progress modal */
+  /* Translate PDF: visual page-picker modal → AJAX with progress modal */
   if (selectedTool === 'translate-pdf') {
     e.preventDefault();
-    document.getElementById('trans-scope-overlay').style.display = '';
+    _openTranslateModal();
     return;
   }
 
@@ -1635,7 +1669,7 @@ function handleSubmit(e) {
         _initOrgDrag(grid);
         /* Store preview_id for reorder step */
         document.getElementById('organize-overlay').dataset.previewId = data.preview_id;
-        document.getElementById('organize-overlay').style.display = '';
+        showOverlay(document.getElementById('organize-overlay'));
       })
       .catch(function() {
         btn2.disabled = false; btn2.textContent = '⚡ ' + getToolLabel(selectedTool); btn2.classList.add('ready');
@@ -1798,6 +1832,108 @@ function showToast(msg, isErr) {
   _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 3500);
 }
 
+/* ── Overlay helpers (fix opacity transition) ─────────── */
+function showOverlay(el) {
+  el.style.display = '';
+  el.offsetHeight; // force reflow so CSS transition triggers
+  el.classList.add('open');
+}
+function hideOverlay(el) {
+  el.classList.remove('open');
+  el.style.display = 'none';
+}
+
+/* ── Translate modal state & functions ────────────────── */
+var _transState = { totalPages: 0, selectedPages: [], mode: 'all' };
+
+function _openTranslateModal() {
+  var overlay = document.getElementById('trans-scope-overlay');
+  // Show language info from form selects
+  var fromEl  = document.getElementById('tr-from');
+  var toEl    = document.getElementById('tr-to');
+  var fromTxt = fromEl ? fromEl.options[fromEl.selectedIndex].text : 'Auto';
+  var toTxt   = toEl   ? toEl.options[toEl.selectedIndex].text   : '—';
+  document.getElementById('trans-lang-label').textContent = fromTxt + ' → ' + toTxt;
+  // Reset to full-doc mode
+  _transSetMode('all');
+  // Show modal
+  showOverlay(overlay);
+  // Load total pages in background to build tile grid
+  var fi = document.getElementById('file-input');
+  if (!fi.files.length) return;
+  var fd2 = new FormData();
+  fd2.append('page', 0);
+  fd2.append('csrf_token', document.querySelector('meta[name="csrf-token"]').content);
+  fd2.append('file', fi.files[0]);
+  fetch('/pdf-page-preview', { method: 'POST', body: fd2, credentials: 'same-origin' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.total_pages) { _transState.totalPages = d.total_pages; _buildTransTiles(d.total_pages); }
+    })
+    .catch(function() {});
+}
+
+function _transSetMode(mode) {
+  _transState.mode = mode;
+  var allBtn   = document.getElementById('trans-mode-all-btn');
+  var pagesBtn = document.getElementById('trans-mode-pages-btn');
+  var allInfo  = document.getElementById('trans-all-info');
+  var picker   = document.getElementById('trans-page-picker');
+  if (mode === 'all') {
+    allBtn.style.background = 'var(--accent)';   allBtn.style.color = '#000';
+    pagesBtn.style.background = 'transparent';   pagesBtn.style.color = 'var(--text-2)';
+    allInfo.style.display = 'block'; picker.style.display = 'none';
+  } else {
+    pagesBtn.style.background = 'var(--accent)'; pagesBtn.style.color = '#000';
+    allBtn.style.background = 'transparent';     allBtn.style.color = 'var(--text-2)';
+    allInfo.style.display = 'none'; picker.style.display = 'block';
+    _updateTransCount();
+  }
+}
+
+function _buildTransTiles(total) {
+  var grid = document.getElementById('trans-page-tiles');
+  grid.innerHTML = '';
+  _transState.selectedPages = [];
+  for (var i = 0; i < total; i++) {
+    _transState.selectedPages.push(i);
+    (function(idx) {
+      var tile = document.createElement('div');
+      tile.className = 'trans-page-tile sel';
+      tile.dataset.pageIdx = idx;
+      tile.innerHTML = '<span class="tp-icon">📄</span><span class="tp-num">Page ' + (idx+1) + '</span><span class="tp-chk">✓</span>';
+      tile.addEventListener('click', function() {
+        var pos = _transState.selectedPages.indexOf(idx);
+        if (pos === -1) { _transState.selectedPages.push(idx); _transState.selectedPages.sort(function(a,b){return a-b;}); tile.classList.add('sel'); }
+        else            { _transState.selectedPages.splice(pos,1); tile.classList.remove('sel'); }
+        _updateTransCount();
+      });
+      grid.appendChild(tile);
+    })(i);
+  }
+  _updateTransCount();
+}
+
+function _updateTransCount() {
+  var el = document.getElementById('trans-selected-count');
+  if (!el) return;
+  var sel = _transState.selectedPages.length, total = _transState.totalPages;
+  el.textContent = sel === total ? 'All ' + total + ' pages selected' :
+                   sel === 0    ? 'No pages selected' :
+                   sel + ' of ' + total + ' pages selected';
+}
+
+function _transRangeStr() {
+  var pages = _transState.selectedPages.map(function(i){ return i+1; });
+  if (!pages.length) return '';
+  var out = [], s = pages[0], e = pages[0];
+  for (var i = 1; i < pages.length; i++) {
+    if (pages[i] === e+1) { e = pages[i]; } else { out.push(s===e ? ''+s : s+'-'+e); s=e=pages[i]; }
+  }
+  out.push(s===e ? ''+s : s+'-'+e);
+  return out.join(',');
+}
+
 /* ── Translate PDF: run AJAX after scope confirmed ────── */
 function _doTranslate(transPages) {
   var form     = document.getElementById('convert-form');
@@ -1807,7 +1943,7 @@ function _doTranslate(transPages) {
   var overlay  = document.getElementById('translate-overlay');
   var statusEl = document.getElementById('translate-status-msg');
   var progBar  = document.getElementById('translate-prog-bar');
-  overlay.style.display = '';
+  showOverlay(overlay);
   statusEl.textContent  = 'Extracting text from PDF…';
   progBar.style.width   = '10%';
 
@@ -1825,7 +1961,7 @@ function _doTranslate(transPages) {
   xhr.responseType = 'blob';
   xhr.onload = function() {
     clearInterval(ticker);
-    overlay.style.display = 'none';
+    hideOverlay(overlay);
     if (xhr.status === 200) {
       progBar.style.width = '100%';
       var cd    = xhr.getResponseHeader('Content-Disposition') || '';
@@ -1867,17 +2003,18 @@ function _openPlaceModal(tool) {
   _placeState.yPct      = null;
   _placeState.formData  = fd;
 
-  var title = tool === 'sign-pdf' ? 'Click to Place Signature' : 'Click to Place Text';
+  var title = tool === 'sign-pdf' ? '✍ Click to Place Signature' : '✏️ Click to Place Text';
   var hint  = tool === 'sign-pdf'
-    ? 'Click on the page where you want your signature to appear.'
-    : 'Click on the page where you want to add your text.';
+    ? 'Click the exact spot on the page where you want your signature to appear.'
+    : 'Click the line on the page where you want to insert your text.';
   document.getElementById('place-modal-title').textContent = title;
   document.getElementById('place-modal-hint').textContent  = hint;
   document.getElementById('place-marker').style.display    = 'none';
+  document.getElementById('place-edit-line').style.display = 'none';
   document.getElementById('place-confirm-btn').disabled    = true;
-  document.getElementById('place-confirm-btn').textContent = 'Click a spot first';
+  document.getElementById('place-confirm-btn').textContent = 'Click on the page first';
   document.getElementById('place-confirm-btn').style.opacity = '.5';
-  document.getElementById('place-overlay').style.display  = '';
+  showOverlay(document.getElementById('place-overlay'));
 
   _loadPlacePage(0);
 }
@@ -1888,7 +2025,8 @@ function _loadPlacePage(pageNum) {
   var wrap    = document.getElementById('place-preview-wrap');
   loading.style.display = 'block';
   img.style.display     = 'none';
-  document.getElementById('place-marker').style.display = 'none';
+  document.getElementById('place-marker').style.display    = 'none';
+  document.getElementById('place-edit-line').style.display = 'none';
   _placeState.xPct = null; _placeState.yPct = null;
   document.getElementById('place-confirm-btn').disabled = true;
   document.getElementById('place-confirm-btn').textContent = 'Click a spot first';
@@ -1922,29 +2060,38 @@ function _loadPlacePage(pageNum) {
 }
 
 function _onPlaceClick(e) {
-  var img  = document.getElementById('place-preview-img');
-  var wrap = document.getElementById('place-preview-wrap');
+  var img = document.getElementById('place-preview-img');
   if (!img || e.target !== img) return;
   var rect = img.getBoundingClientRect();
   var xPct = ((e.clientX - rect.left) / rect.width)  * 100;
   var yPct = ((e.clientY - rect.top)  / rect.height) * 100;
   _placeState.xPct = xPct;
   _placeState.yPct = yPct;
-  /* Show marker */
-  var marker = document.getElementById('place-marker');
-  marker.style.left    = xPct + '%';
-  marker.style.top     = yPct + '%';
-  marker.style.display = 'block';
-  /* Enable confirm */
+
+  if (_placeState.tool === 'edit-pdf') {
+    /* Edit PDF: show a horizontal highlight line at the clicked row */
+    document.getElementById('place-marker').style.display = 'none';
+    var line = document.getElementById('place-edit-line');
+    line.style.top     = yPct + '%';
+    line.style.display = 'block';
+  } else {
+    /* Sign PDF: show a dot at the exact click point */
+    document.getElementById('place-edit-line').style.display = 'none';
+    var marker = document.getElementById('place-marker');
+    marker.style.left    = xPct + '%';
+    marker.style.top     = yPct + '%';
+    marker.style.display = 'block';
+  }
+
   var confirmBtn = document.getElementById('place-confirm-btn');
   confirmBtn.disabled    = false;
-  confirmBtn.textContent = 'Confirm Placement';
+  confirmBtn.textContent = _placeState.tool === 'edit-pdf' ? 'Insert Text Here' : 'Place Signature Here';
   confirmBtn.style.opacity = '1';
 }
 
 function _confirmPlacement() {
   if (_placeState.xPct === null) return;
-  document.getElementById('place-overlay').style.display = 'none';
+  hideOverlay(document.getElementById('place-overlay'));
 
   var form = document.getElementById('convert-form');
   var fd   = new FormData(form);
@@ -2154,39 +2301,40 @@ document.addEventListener('DOMContentLoaded', function() {
   var orgClose   = document.getElementById('org-close-btn');
   var orgOverlay = document.getElementById('organize-overlay');
   if (orgApply)  orgApply.addEventListener('click',  _applyOrgReorder);
-  if (orgCancel) orgCancel.addEventListener('click',  function() { orgOverlay.style.display = 'none'; });
-  if (orgClose)  orgClose.addEventListener('click',   function() { orgOverlay.style.display = 'none'; });
-  orgOverlay.addEventListener('click', function(e) { if (e.target === orgOverlay) orgOverlay.style.display = 'none'; });
+  if (orgCancel) orgCancel.addEventListener('click',  function() { hideOverlay(orgOverlay); });
+  if (orgClose)  orgClose.addEventListener('click',   function() { hideOverlay(orgOverlay); });
+  orgOverlay.addEventListener('click', function(e) { if (e.target === orgOverlay) hideOverlay(orgOverlay); });
 
-  /* Translate scope dialog */
+  /* Translate scope dialog (visual page picker) */
   var transScopeOverlay = document.getElementById('trans-scope-overlay');
-  document.getElementById('trans-scope-cancel').addEventListener('click', function() {
-    transScopeOverlay.style.display = 'none';
+  document.getElementById('trans-scope-close-btn').addEventListener('click', function() { hideOverlay(transScopeOverlay); });
+  document.getElementById('trans-scope-cancel').addEventListener('click',    function() { hideOverlay(transScopeOverlay); });
+  document.getElementById('trans-mode-all-btn').addEventListener('click',    function() { _transSetMode('all'); });
+  document.getElementById('trans-mode-pages-btn').addEventListener('click',  function() { _transSetMode('pages'); });
+  document.getElementById('trans-select-all-btn').addEventListener('click', function() {
+    _transState.selectedPages = [];
+    for (var i = 0; i < _transState.totalPages; i++) _transState.selectedPages.push(i);
+    document.querySelectorAll('.trans-page-tile').forEach(function(t) { t.classList.add('sel'); });
+    _updateTransCount();
   });
-  document.querySelectorAll('input[name="trans-scope"]').forEach(function(radio) {
-    radio.addEventListener('change', function() {
-      var wrap = document.getElementById('trans-pages-range-wrap');
-      wrap.style.display = radio.value === 'pages' ? 'block' : 'none';
-      if (radio.value === 'pages') document.getElementById('trans-pages-range').focus();
-    });
+  document.getElementById('trans-deselect-all-btn').addEventListener('click', function() {
+    _transState.selectedPages = [];
+    document.querySelectorAll('.trans-page-tile').forEach(function(t) { t.classList.remove('sel'); });
+    _updateTransCount();
   });
   document.getElementById('trans-scope-confirm').addEventListener('click', function() {
-    var scope = document.querySelector('input[name="trans-scope"]:checked').value;
-    var pages = scope === 'pages' ? document.getElementById('trans-pages-range').value.trim() : '';
-    if (scope === 'pages' && !pages) {
-      showToast('Please enter a page range, e.g. 1-3, 5', true); return;
+    if (_transState.mode === 'pages' && _transState.selectedPages.length === 0) {
+      showToast('Please select at least one page.', true); return;
     }
-    transScopeOverlay.style.display = 'none';
-    _doTranslate(pages);
+    hideOverlay(transScopeOverlay);
+    _doTranslate(_transState.mode === 'all' ? '' : _transRangeStr());
   });
-  transScopeOverlay.addEventListener('click', function(e) {
-    if (e.target === transScopeOverlay) transScopeOverlay.style.display = 'none';
-  });
+  transScopeOverlay.addEventListener('click', function(e) { if (e.target === transScopeOverlay) hideOverlay(transScopeOverlay); });
 
-  /* Place-on-Page modal */
+  /* Place-on-Page modal (Edit PDF & Sign PDF) */
   var placeOverlay = document.getElementById('place-overlay');
-  document.getElementById('place-close-btn').addEventListener('click',  function() { placeOverlay.style.display = 'none'; });
-  document.getElementById('place-cancel-btn').addEventListener('click', function() { placeOverlay.style.display = 'none'; });
+  document.getElementById('place-close-btn').addEventListener('click',  function() { hideOverlay(placeOverlay); });
+  document.getElementById('place-cancel-btn').addEventListener('click', function() { hideOverlay(placeOverlay); });
   document.getElementById('place-confirm-btn').addEventListener('click', _confirmPlacement);
   document.getElementById('place-prev-btn').addEventListener('click', function() {
     if (_placeState.pageNum > 0) _loadPlacePage(_placeState.pageNum - 1);
@@ -2195,7 +2343,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (_placeState.pageNum < _placeState.totalPages - 1) _loadPlacePage(_placeState.pageNum + 1);
   });
   document.getElementById('place-preview-wrap').addEventListener('click', _onPlaceClick);
-  placeOverlay.addEventListener('click', function(e) { if (e.target === placeOverlay) placeOverlay.style.display = 'none'; });
+  placeOverlay.addEventListener('click', function(e) { if (e.target === placeOverlay) hideOverlay(placeOverlay); });
 });
 
 /* All conversions now use AJAX — quota errors handled inline via openPw() */
