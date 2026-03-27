@@ -431,7 +431,8 @@ def test_reset_quota():
         return jsonify({"error": "Unauthorized"}), 401
     fingerprint = get_client_fingerprint(request)
     ConversionCounter.reset(fingerprint)
-    return jsonify({"reset": True})
+    ConversionCounter.grant_pro(fingerprint, 9999)
+    return jsonify({"reset": True, "pro": True})
 
 @app.route("/<tool_slug>")
 def tool_page(tool_slug):
@@ -580,15 +581,15 @@ def convert():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def merge_pdf_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     files = request.files.getlist("files[]")
@@ -665,9 +666,7 @@ def merge_pdf_route():
         return jsonify({"error": "Merge produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     @after_this_request
     def remove_merged(response):
@@ -730,15 +729,15 @@ def _parse_page_ranges(ranges_str, total_pages):
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def split_pdf_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -861,9 +860,7 @@ def split_pdf_route():
         return jsonify({"error": "Split produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
     logger.info("Split PDF: %d segment(s) from %s", len(output_paths), safe_name)
 
     base_name = os.path.splitext(safe_name)[0]
@@ -915,15 +912,15 @@ def split_pdf_route():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def remove_pages_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -1013,9 +1010,7 @@ def remove_pages_route():
         return jsonify({"error": "Operation produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name     = os.path.splitext(safe_name)[0]
     download_name = f"{base_name}_removed.pdf"
@@ -1038,15 +1033,15 @@ def remove_pages_route():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def extract_pages_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -1124,9 +1119,7 @@ def extract_pages_route():
         return jsonify({"error": "Extraction produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name     = os.path.splitext(safe_name)[0]
     download_name = f"{base_name}_extracted.pdf"
@@ -1193,15 +1186,15 @@ def _compress_pdf_render(src_path, out_path, dpi, jpeg_quality):
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def compress_pdf_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -1271,9 +1264,7 @@ def compress_pdf_route():
     )
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name     = os.path.splitext(safe_name)[0]
     download_name = f"{base_name}_compressed.pdf"
@@ -1375,15 +1366,15 @@ def organize_pdf_preview():
 def organize_pdf_reorder():
     """Step 2 — apply new page order, return reordered PDF. Consumes a quota slot."""
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate preview session ───────────────────────────────────────────
@@ -1453,8 +1444,7 @@ def organize_pdf_reorder():
         return jsonify({"error": "Reorder produced no output. Please try again."}), 500
 
     # ── Increment quota and clean up session keys ──────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
+    ConversionCounter.increment(fingerprint, request)
     session.pop("organize_preview_id", None)
     session.pop("organize_file_name",  None)
     session.modified = True
@@ -1617,15 +1607,15 @@ def invoice():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def pdf_to_jpg_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -1686,9 +1676,7 @@ def pdf_to_jpg_route():
                 fh.write(jpg_bytes)
             out_paths.append(out_path)
 
-            session["conversions_used"]   = conversions_used + 1
-            session["conversions_budget"] = conversions_budget
-            session.modified = True
+            ConversionCounter.increment(fingerprint, request)
 
             @after_this_request
             def _remove_single(response):
@@ -1728,9 +1716,7 @@ def pdf_to_jpg_route():
                 fh.write(zip_buf.read())
             out_paths.append(zip_path)
 
-            session["conversions_used"]   = conversions_used + 1
-            session["conversions_budget"] = conversions_budget
-            session.modified = True
+            ConversionCounter.increment(fingerprint, request)
 
             @after_this_request
             def _remove_zip(response):
@@ -1771,15 +1757,15 @@ def pdf_to_jpg_route():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def jpg_to_pdf_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate files ─────────────────────────────────────────────────────
@@ -1893,9 +1879,7 @@ def jpg_to_pdf_route():
         return jsonify({"error": "Conversion produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     page_count    = len(files)
     download_name = "images_converted.pdf"
@@ -1920,15 +1904,15 @@ def jpg_to_pdf_route():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def watermark_pdf_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -2056,9 +2040,7 @@ def watermark_pdf_route():
         return jsonify({"error": "Watermark produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name     = os.path.splitext(safe_name)[0]
     download_name = f"{base_name}_watermarked.pdf"
@@ -2080,15 +2062,15 @@ def watermark_pdf_route():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def rotate_pdf_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -2178,9 +2160,7 @@ def rotate_pdf_route():
         return jsonify({"error": "Rotation produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name     = os.path.splitext(safe_name)[0]
     download_name = f"{base_name}_rotated.pdf"
@@ -2206,15 +2186,15 @@ def rotate_pdf_route():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def unlock_pdf_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file (lenient — broken header possible on encrypted PDFs) ─
@@ -2287,9 +2267,7 @@ def unlock_pdf_route():
         return jsonify({"error": "Unlock produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name     = os.path.splitext(safe_name)[0]
     download_name = f"{base_name}_unlocked.pdf"
@@ -2313,15 +2291,15 @@ def unlock_pdf_route():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def protect_pdf_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -2407,9 +2385,7 @@ def protect_pdf_route():
         return jsonify({"error": "Protection produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name     = os.path.splitext(safe_name)[0]
     download_name = f"{base_name}_protected.pdf"
@@ -2433,15 +2409,15 @@ def protect_pdf_route():
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def page_numbers_route():
     # ── Quota check ────────────────────────────────────────────────────────
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
 
-    if conversions_used >= conversions_budget:
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     # ── Validate file ──────────────────────────────────────────────────────
@@ -2562,9 +2538,7 @@ def page_numbers_route():
         return jsonify({"error": "Page numbering produced no output. Please try again."}), 500
 
     # ── Increment quota ────────────────────────────────────────────────────
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name     = os.path.splitext(safe_name)[0]
     download_name = f"{base_name}_numbered.pdf"
@@ -2817,6 +2791,7 @@ def translate_chunk():
         data        = request.get_json(silent=True) or {}
         text        = str(data.get("text", "")).strip()
         target_lang = str(data.get("target_lang", "English")).strip()
+        from_lang   = str(data.get("from_lang", "en")).strip()
 
         if not text:
             return jsonify({"error": "No text provided."}), 400
@@ -2824,6 +2799,11 @@ def translate_chunk():
         # Normalize both language names and shorthand codes
         normalized_lang = _LANG_CODE_TO_NAME.get(target_lang) or _LANG_CODE_TO_NAME.get(target_lang.lower())
         target_lang = normalized_lang or target_lang
+
+        # Resolve from_lang ISO code → full name → MyMemory code
+        normalized_from = _LANG_CODE_TO_NAME.get(from_lang) or _LANG_CODE_TO_NAME.get(from_lang.lower())
+        from_name = normalized_from or from_lang
+        from_code = _MYMEMORY_LANG_CODE.get(from_name) or _MYMEMORY_LANG_CODE.get(from_name.lower()) or from_lang.lower()
 
         # ✅ Check JWT Pro token
         pro_token = request.cookies.get("pro_token")
@@ -2849,7 +2829,7 @@ def translate_chunk():
                 }), 402
 
         target_code = _MYMEMORY_LANG_CODE.get(target_lang) or _MYMEMORY_LANG_CODE.get(target_lang.lower()) or target_lang.lower()
-        translated  = _ts_translate_text(text, "en", target_code)
+        translated  = _ts_translate_text(text, from_code, target_code)
 
         remaining = None
         if not is_pro:
@@ -2866,14 +2846,14 @@ def translate_chunk():
 @app.route("/translate-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def translate_pdf_route():
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
-    if conversions_used >= conversions_budget:
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     file = request.files.get("file")
@@ -2891,6 +2871,10 @@ def translate_pdf_route():
     if target_lang not in TRANSLATE_TARGET_LANGS:
         target_lang = "English"
     target_code = _MYMEMORY_LANG_CODE.get(target_lang, "en")
+
+    from_lang_raw = request.form.get("from_lang", "en").strip()
+    from_lang_name = _LANG_CODE_TO_NAME.get(from_lang_raw, from_lang_raw)
+    from_code = _MYMEMORY_LANG_CODE.get(from_lang_name, from_lang_raw.lower())
 
     uid       = str(uuid.uuid4())
     safe_name = os.path.basename(file.filename)
@@ -2949,7 +2933,7 @@ def translate_pdf_route():
             if not page_text.strip():
                 translated_pages.append("")
                 continue
-            translated_pages.append(_ts_translate_text(page_text, "en", target_code))
+            translated_pages.append(_ts_translate_text(page_text, from_code, target_code))
 
         # ── Build output PDF ─────────────────────────────────────────────────
         import textwrap as _textwrap
@@ -3056,9 +3040,7 @@ def translate_pdf_route():
     if not os.path.exists(out_path):
         return jsonify({"error": "Translation produced no output."}), 500
 
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name  = os.path.splitext(safe_name)[0]
     lang_slug  = target_lang.lower().replace(" ", "_").replace("(", "").replace(")", "")
@@ -3083,14 +3065,14 @@ def translate_pdf_route():
 @app.route("/sign-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def sign_pdf_route():
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
-    if conversions_used >= conversions_budget:
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     file = request.files.get("file")
@@ -3197,9 +3179,7 @@ def sign_pdf_route():
     if not os.path.exists(out_path):
         return jsonify({"error": "Signing produced no output."}), 500
 
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name = os.path.splitext(safe_name)[0]
 
@@ -3290,14 +3270,14 @@ def pdf_page_preview():
 @app.route("/edit-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def edit_pdf_route():
-    conversions_used   = session.get("conversions_used", 0)
-    conversions_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
-    if conversions_used >= conversions_budget:
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+    if _cc_used >= _cc_budget and not _cc_pro:
         return jsonify({
             "error":              "quota_exceeded",
             "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   conversions_used,
-            "conversions_budget": conversions_budget,
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
         }), 402
 
     file = request.files.get("file")
@@ -3313,7 +3293,7 @@ def edit_pdf_route():
     if not text:
         return jsonify({"error": "No text provided."}), 400
     if len(text) > 500:
-        text = text[:500]
+        return jsonify({"error": "Text is too long (max 500 characters)."}), 400
 
     position = request.form.get("position", "tl")
     if position not in {"tl", "tc", "tr", "bl", "bc", "br"}:
@@ -3427,9 +3407,7 @@ def edit_pdf_route():
     if not os.path.exists(out_path):
         return jsonify({"error": "Edit produced no output."}), 500
 
-    session["conversions_used"]   = conversions_used + 1
-    session["conversions_budget"] = conversions_budget
-    session.modified = True
+    ConversionCounter.increment(fingerprint, request)
 
     base_name = os.path.splitext(safe_name)[0]
 
@@ -3504,19 +3482,16 @@ def redeem_voucher():
         VoucherSecurity.record_attempt(fingerprint, False)
         return jsonify({"error": "This voucher has already been redeemed in this session."}), 400
 
-    # Grant conversions server-side
-    current_budget = session.get("conversions_budget", FREE_CONVERSIONS_LIMIT)
-    current_used   = session.get("conversions_used",   0)
-    new_budget     = current_budget + VOUCHER_GRANT
+    # Grant conversions server-side via ConversionCounter
+    ConversionCounter.grant_pro(fingerprint, VOUCHER_GRANT)
+    _v_used, new_budget, _v_rem, _ = ConversionCounter.get_status(fingerprint)
+    remaining = new_budget - _v_used
 
-    session["conversions_budget"]  = new_budget
-    session["conversions_used"]    = current_used
-    session["redeemed_vouchers"]   = redeemed + [code]
+    session["redeemed_vouchers"] = redeemed + [code]
     session.modified = True
 
     VoucherSecurity.record_attempt(fingerprint, True)  # ✅ Record success
-    
-    remaining = new_budget - current_used
+
     logger.info("Voucher redeemed: code=%s, granted=%d", LogSanitizer.sanitize(code), VOUCHER_GRANT)
 
     return jsonify({

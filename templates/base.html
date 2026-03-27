@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ page_title or "Convertly — Free PDF Converter" }}{% endblock %}</title>
+  <meta name="description" content="{{ page_description or 'Free PDF converter online.' }}">
+  <meta property="og:title"       content="{{ og_title or page_title or 'Convertly' }}">
+  <meta property="og:description" content="{{ og_description or page_description or '' }}">
+  <meta property="og:type"        content="website">
+  <meta name="csrf-token"         content="{{ csrf_token() }}">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Custom Properties ───────────────────────────────────── */
+    :root {
+      --bg:           #0d0d10;
+      --surface:      #141418;
+      --surface-2:    #1a1a22;
+      --surface-3:    #22222e;
+      --accent:       #4ade80;
+      --accent-dim:   rgba(74,222,128,.10);
+      --accent-mid:   rgba(74,222,128,.20);
+      --accent-glow:  rgba(74,222,128,.40);
+      --border:       rgba(255,255,255,.06);
+      --border-2:     rgba(255,255,255,.11);
+      --border-3:     rgba(255,255,255,.18);
+      --text:         #eeeef5;
+      --text-2:       #c4c4d4;
+      --muted:        #7c7c9a;
+      --muted-2:      #52526a;
+      --danger:       #f87171;
+      --warn:         #fbbf24;
+      --radius-sm:    8px;
+      --radius:       12px;
+      --radius-lg:    18px;
+      --radius-xl:    24px;
+      --shadow:       0 2px 16px rgba(0,0,0,.35);
+      --shadow-lg:    0 8px 40px rgba(0,0,0,.55);
+      --font:         'DM Sans', system-ui, sans-serif;
+      --mono:         'DM Mono', 'Fira Mono', monospace;
+      --ease:         cubic-bezier(.4,0,.2,1);
+      --t:            .18s;
+      --nav-h:        58px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Noise texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: .028;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Animations ──────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes shimmer {
+      from { background-position: -200% 0; }
+      to   { background-position:  200% 0; }
+    }
+
+    /* ── Layout ──────────────────────────────────────────────── */
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+    main { position: relative; z-index: 1; }
+
+    /* ── Navbar ──────────────────────────────────────────────── */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: var(--nav-h);
+      background: rgba(13,13,16,.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    /* Logo */
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .logo-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+      flex-shrink: 0;
+    }
+    .logo-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -.3px;
+    }
+    .logo-badge {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid var(--accent-mid);
+    }
+
+    /* Quota pill */
+    .quota-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: 20px;
+      padding: 5px 12px;
+      cursor: default;
+      user-select: none;
+      transition: border-color var(--t);
+    }
+    .quota-pill:hover { border-color: var(--border-3); }
+    .quota-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent-glow);
+      flex-shrink: 0;
+    }
+    .quota-num { color: var(--text); font-weight: 500; }
+    .quota-pill.exhausted .quota-dot { background: var(--danger); box-shadow: 0 0 6px rgba(248,113,113,.5); }
+    .quota-pill.exhausted .quota-num { color: var(--danger); }
+
+    /* ── Flash messages ──────────────────────────────────────── */
+    .flash-stack {
+      position: fixed;
+      top: calc(var(--nav-h) + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: calc(100% - 32px);
+      max-width: 460px;
+      pointer-events: none;
+    }
+    .flash {
+      padding: 11px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid;
+      pointer-events: all;
+      animation: fadeUp .3s var(--ease) both;
+    }
+    .flash.success { background: rgba(74,222,128,.08);  border-color: rgba(74,222,128,.25);  color: #86efac; }
+    .flash.error   { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.25); color: #fca5a5; }
+    .flash.info    { background: rgba(99,102,241,.08);  border-color: rgba(99,102,241,.25);  color: #a5b4fc; }
+    .flash.warning { background: rgba(251,191,36,.08);  border-color: rgba(251,191,36,.25);  color: #fde68a; }
+
+    /* ── Paywall Modal ───────────────────────────────────────── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .22s var(--ease);
+    }
+    .overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--surface-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-xl);
+      padding: 32px 28px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,.03);
+      transform: translateY(14px) scale(.98);
+      transition: transform .25s var(--ease);
+    }
+    .overlay.open .modal { transform: translateY(0) scale(1); }
+
+    .modal-glyph {
+      width: 50px;
+      height: 50px;
+      border-radius: var(--radius);
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 18px;
+    }
+    .modal h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 5px;
+      letter-spacing: -.3px;
+    }
+    .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 22px; line-height: 1.5; }
+
+    .modal-price {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+      margin-bottom: 20px;
+    }
+    .price-sym   { font-size: 15px; color: var(--muted); margin-top: 4px; }
+    .price-amt   { font-size: 40px; font-weight: 700; color: var(--text); line-height: 1; letter-spacing: -1px; }
+    .price-label { font-size: 12px; color: var(--muted); margin-left: 4px; }
+
+    .modal-feats {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      margin-bottom: 24px;
+    }
+    .modal-feats li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+    .modal-feats li .chk {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-mid);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .btn-paypal {
+      width: 100%;
+      padding: 13px 20px;
+      background: linear-gradient(135deg, #f5a623, #f0921a);
+      color: #1a0e00;
+      font-family: var(--font);
+      font-weight: 700;
+      font-size: 14px;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: opacity var(--t), transform var(--t);
+      margin-bottom: 10px;
+      letter-spacing: .1px;
+    }
+    .btn-paypal:hover { opacity: .9; transform: translateY(-1px); }
+
+    .btn-ghost {
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font);
+      font-size: 13px;
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: color var(--t), border-color var(--t);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--border-3); }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      margin-top: 80px;
+      padding: 28px 24px;
+      border-top: 1px solid var(--border);
+      position: relative;
+      z-index: 1;
+    }
+    .footer-row {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .footer-logo { display: flex; align-items: center; gap: 6px; text-decoration: none; }
+    .footer-logo .logo-dot { width: 7px; height: 7px; box-shadow: none; }
+    .footer-logo span { font-size: 13px; font-weight: 600; color: var(--muted-2); }
+
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a {
+      font-size: 12px;
+      color: var(--muted-2);
+      text-decoration: none;
+      transition: color var(--t);
+    }
+    .footer-links a:hover { color: var(--text-2); }
+
+    .footer-sec {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted-2);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* ── Utility ─────────────────────────────────────────────── */
+    .sr-only { position: absolute; width: 1px; height: 1px; clip: rect(0,0,0,0); overflow: hidden; }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .nav-inner { padding: 0 16px; }
+      .wrap       { padding: 0 16px; }
+      .logo-badge { display: none; }
+      .footer-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .modal { padding: 24px 18px; border-radius: var(--radius-lg); }
+    }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────────────────────── -->
+<nav class="nav" role="navigation" aria-label="Main">
+  <div class="nav-inner">
+    <a href="{{ url_for('index') }}" class="logo" aria-label="Convertly home">
+      <div class="logo-dot"></div>
+      <span class="logo-name">Convertly</span>
+      <span class="logo-badge">Free</span>
+    </a>
+    <div class="quota-pill" id="quota-pill" title="Your free conversion quota">
+      <div class="quota-dot" id="quota-dot"></div>
+      <span><span class="quota-num" id="q-used">–</span>/<span class="quota-num" id="q-total">–</span>&nbsp;free</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Flash messages ──────────────────────────────────────────── -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-stack" role="alert" aria-live="polite">
+  {% for cat, msg in messages %}
+  <div class="flash {{ cat }}">{{ msg }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- ── Page content ────────────────────────────────────────────── -->
+<main>{% block content %}{% endblock %}</main>
+
+<!-- ── Paywall Modal ───────────────────────────────────────────── -->
+<div class="overlay" id="paywall" role="dialog" aria-modal="true" aria-labelledby="pw-title">
+  <div class="modal">
+    <div class="modal-glyph">⚡</div>
+    <h2 id="pw-title">Unlock More Conversions</h2>
+    <p class="modal-sub">You've used your 3 free conversions. Get 20 more instantly — one-time payment, no subscription.</p>
+    <div class="modal-price">
+      <span class="price-sym">$</span>
+      <span class="price-amt">2</span>
+      <span class="price-label">.00&nbsp;one-time</span>
+    </div>
+    <ul class="modal-feats">
+      <li><span class="chk">✓</span>20 conversions unlocked instantly</li>
+      <li><span class="chk">✓</span>Every tool — PDF, Word, Excel, JPG &amp; more</li>
+      <li><span class="chk">✓</span>No subscription or account required</li>
+      <li><span class="chk">✓</span>Secure PayPal checkout</li>
+    </ul>
+    <form action="{{ url_for('create_paypal_order') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-paypal">💳&nbsp;&nbsp;Pay $2.00 with PayPal</button>
+    </form>
+    <button class="btn-ghost" onclick="closePw()">Maybe later</button>
+  </div>
+</div>
+
+<!-- ── Footer ──────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-row">
+    <a href="{{ url_for('index') }}" class="footer-logo" aria-label="Convertly">
+      <div class="logo-dot"></div>
+      <span>Convertly</span>
+    </a>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="{{ url_for('privacy') }}">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="mailto:support@convertly.io">Support</a>
+    </nav>
+    <div class="footer-sec">🔒 Files deleted after processing</div>
+  </div>
+</footer>
+
+<script nonce="{{ csp_nonce }}">
+/* ── Quota display ──────────────────────────────────────────────── */
+(function loadQuota() {
+  fetch('/status', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(d => {
+      const used  = d.conversions_used   ?? 0;
+      const total = d.conversions_budget ?? 3;
+      document.getElementById('q-used').textContent  = used;
+      document.getElementById('q-total').textContent = total;
+      if (!d.paid && used >= total) {
+        document.getElementById('quota-pill').classList.add('exhausted');
+        document.getElementById('quota-dot').style.background = 'var(--danger)';
+      }
+    })
+    .catch(() => {});
+})();
+
+/* ── Paywall ────────────────────────────────────────────────────── */
+function openPw()  { document.getElementById('paywall').classList.add('open'); }
+function closePw() { document.getElementById('paywall').classList.remove('open'); }
+document.getElementById('paywall').addEventListener('click', e => {
+  if (e.target === document.getElementById('paywall')) closePw();
+});
+{% if show_paywall %}document.addEventListener('DOMContentLoaded', openPw);{% endif %}
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
