@@ -3173,6 +3173,13 @@ def sign_pdf_route():
             except Exception:
                 target_indices = [total_pages - 1]
 
+        if use_click_pos:
+            try:
+                click_page = max(0, min(int(request.form.get("page_num", "0")), total_pages - 1))
+            except (ValueError, TypeError):
+                click_page = total_pages - 1
+            target_indices = [click_page]
+
         MARGIN = 20.0
         for i in target_indices:
             page   = doc.load_page(i)
@@ -3383,6 +3390,13 @@ def edit_pdf_route():
                 target_indices = sorted({i for s, e in pairs for i in range(s, e + 1)})
             except Exception:
                 target_indices = list(range(total_pages))
+
+        if use_coords:
+            try:
+                click_page = max(0, min(int(request.form.get("page_num", "0")), total_pages - 1))
+            except (ValueError, TypeError):
+                click_page = 0
+            target_indices = [click_page]
 
         margin = max(font_size * 1.4, 14.0)
         lines  = text.split("\n")
