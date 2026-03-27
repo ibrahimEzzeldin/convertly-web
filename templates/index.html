@@ -360,6 +360,23 @@
 .upload-btn-label:hover { background: rgba(74,222,128,.18); border-color: rgba(74,222,128,.4); }
 .upload-sec { font-size: 11px; color: var(--muted-2); margin-top: 10px; }
 
+.upload-progress {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+  display: none;
+}
+.upload-progress.visible { display: block; }
+.upload-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.4s var(--ease);
+  border-radius: 2px;
+}
+
 /* File preview */
 .file-preview {
   display: none;
@@ -440,20 +457,36 @@
   display: none;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 20px;
+  gap: 10px;
+  padding: 24px 20px 16px;
   text-align: center;
 }
 .loader.visible { display: flex; }
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 2.5px solid var(--border-2);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin .8s linear infinite;
+
+/* Progress bar replaces spinner */
+.loader-bar-wrap {
+  width: 100%;
+  max-width: 340px;
+  background: var(--border);
+  border-radius: 6px;
+  height: 6px;
+  overflow: hidden;
 }
-.loader-msg { font-size: 13px; color: var(--muted); }
+.loader-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, #a3e635 60%, var(--accent) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+  border-radius: 6px;
+  width: 100%;
+}
+.loader-wait {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.01em;
+}
+.loader-msg { font-size: 12px; color: var(--muted); }
 .loader-sec { font-size: 11px; color: var(--muted-2); font-family: var(--mono); }
 
 /* ── Toast ────────────────────────────────────────────── */
@@ -481,6 +514,40 @@
 }
 .toast.show { opacity: 1; transform: translateY(0); pointer-events: all; }
 .toast.err  { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.3); color: #fca5a5; }
+
+#translate-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 200;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+#translate-overlay[style*="display:none"] { display: none !important; }
+
+.org-page-item {
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  transition: border-color var(--t), transform var(--t), opacity var(--t);
+  position: relative;
+}
+.org-page-item:hover { border-color: var(--border-2); }
+.org-page-item.dragging { opacity: .4; cursor: grabbing; }
+.org-page-item.drag-over { border-color: var(--accent); transform: scale(1.04); }
+.org-page-item img { display: block; width: 100%; aspect-ratio: 3/4; object-fit: cover; }
+.org-page-item .org-page-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+  padding: 4px 0;
+  background: var(--surface-3);
+}
 
 /* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 600px) {
@@ -518,7 +585,7 @@
 <!-- ══════════════════════════════════════════════════════════
      FORM + STEPS
 ══════════════════════════════════════════════════════════ -->
-<form id="convert-form" method="POST" enctype="multipart/form-data" onsubmit="handleSubmit(event)">
+<form id="convert-form" method="POST" enctype="multipart/form-data">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="mode"      id="hidden-mode">
   <input type="hidden" name="signature_data" id="sig-data">
@@ -536,10 +603,10 @@
 
         <!-- Category tabs -->
         <div class="tool-tabs" role="tablist">
-          <button type="button" class="tab-btn active" onclick="filterTools('Convert',this)"    role="tab">Convert</button>
-          <button type="button" class="tab-btn"        onclick="filterTools('Organise',this)"   role="tab">Organise</button>
-          <button type="button" class="tab-btn"        onclick="filterTools('Edit & Sign',this)" role="tab">Edit &amp; Sign</button>
-          <button type="button" class="tab-btn"        onclick="filterTools('Protect',this)"    role="tab">Protect</button>
+          <button type="button" class="tab-btn active" data-category="Convert"    role="tab">Convert</button>
+          <button type="button" class="tab-btn"        data-category="Organise"   role="tab">Organise</button>
+          <button type="button" class="tab-btn"        data-category="Edit & Sign" role="tab">Edit &amp; Sign</button>
+          <button type="button" class="tab-btn"        data-category="Protect"    role="tab">Protect</button>
         </div>
 
         <!-- Tool cards -->
@@ -550,7 +617,7 @@
                data-category="Convert" data-tool="pdf-to-word"
                data-action="{{ url_for('convert') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">📄</div>
             <div class="card-name">PDF → Word</div>
             <div class="card-desc">Editable .docx in seconds</div>
@@ -561,7 +628,7 @@
                data-category="Convert" data-tool="pdf-to-excel"
                data-action="{{ url_for('convert') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">📊</div>
             <div class="card-name">PDF → Excel</div>
             <div class="card-desc">Extract tables to .xlsx</div>
@@ -572,7 +639,7 @@
                data-category="Convert" data-tool="word-to-pdf"
                data-action="{{ url_for('convert') }}"
                data-accept=".doc,.docx" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">📝</div>
             <div class="card-name">Word → PDF</div>
             <div class="card-desc">.doc/.docx to PDF</div>
@@ -583,7 +650,7 @@
                data-category="Convert" data-tool="excel-to-pdf"
                data-action="{{ url_for('convert') }}"
                data-accept=".xls,.xlsx" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">📈</div>
             <div class="card-name">Excel → PDF</div>
             <div class="card-desc">Spreadsheets to PDF</div>
@@ -595,7 +662,7 @@
                data-category="Organise" data-tool="merge-pdf"
                data-action="{{ url_for('merge_pdf_route') }}"
                data-accept=".pdf" data-fname="files[]" data-multi="true"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">📎</div>
             <div class="card-name">Merge PDF</div>
             <div class="card-desc">Combine multiple PDFs</div>
@@ -606,7 +673,7 @@
                data-category="Organise" data-tool="split-pdf"
                data-action="{{ url_for('split_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">✂️</div>
             <div class="card-name">Split PDF</div>
             <div class="card-desc">Extract page ranges</div>
@@ -617,7 +684,7 @@
                data-category="Organise" data-tool="remove-pages"
                data-action="{{ url_for('remove_pages_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🗑️</div>
             <div class="card-name">Remove Pages</div>
             <div class="card-desc">Delete specific pages</div>
@@ -628,7 +695,7 @@
                data-category="Organise" data-tool="extract-pages"
                data-action="{{ url_for('extract_pages_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">📤</div>
             <div class="card-name">Extract Pages</div>
             <div class="card-desc">Keep only certain pages</div>
@@ -639,7 +706,7 @@
                data-category="Organise" data-tool="organize-pdf"
                data-action="{{ url_for('organize_pdf_preview') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">📐</div>
             <div class="card-name">Organize PDF</div>
             <div class="card-desc">Drag &amp; reorder pages</div>
@@ -650,7 +717,7 @@
                data-category="Organise" data-tool="compress-pdf"
                data-action="{{ url_for('compress_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🗜️</div>
             <div class="card-name">Compress PDF</div>
             <div class="card-desc">Reduce file size</div>
@@ -661,7 +728,7 @@
                data-category="Organise" data-tool="pdf-to-jpg"
                data-action="{{ url_for('pdf_to_jpg_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🖼️</div>
             <div class="card-name">PDF → JPG</div>
             <div class="card-desc">Pages to images</div>
@@ -672,7 +739,7 @@
                data-category="Organise" data-tool="jpg-to-pdf"
                data-action="{{ url_for('jpg_to_pdf_route') }}"
                data-accept=".jpg,.jpeg,.png,.webp" data-fname="files[]" data-multi="true"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🗃️</div>
             <div class="card-name">JPG → PDF</div>
             <div class="card-desc">Images into one PDF</div>
@@ -684,7 +751,7 @@
                data-category="Edit &amp; Sign" data-tool="watermark-pdf"
                data-action="{{ url_for('watermark_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">💧</div>
             <div class="card-name">Watermark PDF</div>
             <div class="card-desc">Stamp text on every page</div>
@@ -695,7 +762,7 @@
                data-category="Edit &amp; Sign" data-tool="rotate-pdf"
                data-action="{{ url_for('rotate_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🔄</div>
             <div class="card-name">Rotate PDF</div>
             <div class="card-desc">Fix page orientation</div>
@@ -706,7 +773,7 @@
                data-category="Edit &amp; Sign" data-tool="page-numbers"
                data-action="{{ url_for('page_numbers_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🔢</div>
             <div class="card-name">Page Numbers</div>
             <div class="card-desc">Stamp numbers on pages</div>
@@ -717,7 +784,7 @@
                data-category="Edit &amp; Sign" data-tool="translate-pdf"
                data-action="{{ url_for('translate_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🌐</div>
             <div class="card-name">Translate PDF</div>
             <div class="card-desc">23 languages supported</div>
@@ -728,7 +795,7 @@
                data-category="Edit &amp; Sign" data-tool="sign-pdf"
                data-action="{{ url_for('sign_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">✍️</div>
             <div class="card-name">Sign PDF</div>
             <div class="card-desc">Draw your signature</div>
@@ -739,7 +806,7 @@
                data-category="Edit &amp; Sign" data-tool="edit-pdf"
                data-action="{{ url_for('edit_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">✏️</div>
             <div class="card-name">Edit PDF</div>
             <div class="card-desc">Add text to PDF pages</div>
@@ -751,7 +818,7 @@
                data-category="Protect" data-tool="unlock-pdf"
                data-action="{{ url_for('unlock_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🔓</div>
             <div class="card-name">Unlock PDF</div>
             <div class="card-desc">Remove password protection</div>
@@ -762,7 +829,7 @@
                data-category="Protect" data-tool="protect-pdf"
                data-action="{{ url_for('protect_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
-               onclick="selectTool(this)">
+               >
             <div class="card-icon">🔐</div>
             <div class="card-name">Protect PDF</div>
             <div class="card-desc">Add password to PDF</div>
@@ -808,9 +875,9 @@
             <label class="opt-label" for="compress-level">Quality</label>
             <div class="opt-select-wrap">
               <select class="opt-select" name="level" id="compress-level">
-                <option value="medium" selected>Medium (recommended)</option>
-                <option value="high">High quality</option>
-                <option value="low">Maximum compression</option>
+                <option value="balanced" selected>Balanced (recommended)</option>
+                <option value="lossless">Lossless (best quality)</option>
+                <option value="maximum">Maximum compression</option>
               </select>
             </div>
           </div>
@@ -996,7 +1063,7 @@
             <canvas id="sig-canvas" class="sig-canvas" width="600" height="100"
                     aria-label="Signature drawing area"></canvas>
             <div class="sig-actions">
-              <button type="button" class="sig-btn" onclick="clearSig()">✕ Clear</button>
+              <button type="button" class="sig-btn" id="sig-clear-btn">✕ Clear</button>
               <span style="font-size:11px;color:var(--muted-2);align-self:center;">Draw above — white on dark</span>
             </div>
           </div>
@@ -1074,21 +1141,21 @@
       <div class="step-body">
         <!-- Hidden file input -->
         <input type="file" id="file-input" name="file"
-               style="display:none" onchange="handleFileSelect(event)">
+               style="display:none">
 
         <!-- Drop zone -->
         <div class="upload-zone" id="drop-zone"
-             onclick="document.getElementById('file-input').click()"
-             ondragover="handleDragOver(event)"
-             ondragleave="handleDragLeave(event)"
-             ondrop="handleDrop(event)"
-             role="button" tabindex="0" aria-label="Upload file"
-             onkeydown="if(event.key==='Enter'||event.key===' ')document.getElementById('file-input').click()">
+             role="button" tabindex="0" aria-label="Upload file">
           <div class="upload-icon">☁️</div>
           <div class="upload-title">Drop your file here</div>
           <p class="upload-sub" id="upload-sub">Or click to browse your computer</p>
           <span class="upload-btn-label">Browse files</span>
           <p class="upload-sec">🔒 Encrypted transfer · deleted after processing</p>
+        </div>
+
+        <!-- Upload progress bar -->
+        <div class="upload-progress" id="upload-progress">
+          <div class="upload-progress-bar" id="upload-progress-bar"></div>
         </div>
 
         <!-- Multi-file hint -->
@@ -1101,7 +1168,7 @@
             <div class="fp-name" id="fp-name">—</div>
             <div class="fp-size" id="fp-size">—</div>
           </div>
-          <button type="button" class="fp-clear" onclick="clearFile()" aria-label="Remove file">✕</button>
+          <button type="button" class="fp-clear" id="fp-clear-btn" aria-label="Remove file">✕</button>
         </div>
       </div>
     </div><!-- /step2 -->
@@ -1110,12 +1177,13 @@
     <div class="step-block" id="step3" style="animation-delay:.2s">
       <div class="step-head">
         <span class="step-num">03</span>
-        <span class="step-title">Convert</span>
+        <span class="step-title" id="step3-title">Convert</span>
       </div>
 
       <!-- Loader (shown during processing) -->
       <div class="loader" id="loader">
-        <div class="spinner"></div>
+        <div class="loader-wait">We are processing your request, kindly wait</div>
+        <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
         <div class="loader-msg" id="loader-msg">Converting your file…</div>
         <div class="loader-sec">🔒 Processing securely — please wait</div>
       </div>
@@ -1131,6 +1199,101 @@
   </div><!-- /steps -->
 </form>
 
+<!-- ── Translate Progress Modal ────────────────────────── -->
+<div class="overlay" id="translate-overlay" style="display:none">
+  <div class="modal" style="text-align:center;max-width:400px">
+    <div class="modal-glyph">🌐</div>
+    <h2 style="font-size:20px;margin-bottom:8px">Translating PDF</h2>
+    <p class="modal-sub" id="translate-status-msg">Preparing translation…</p>
+    <div style="margin:20px 0;background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+      <div id="translate-prog-bar" style="height:100%;background:var(--accent);width:0%;transition:width 0.6s ease;border-radius:4px"></div>
+    </div>
+    <p style="font-size:11px;color:var(--muted-2)">Please keep this tab open</p>
+  </div>
+</div>
+
+<!-- ── Translate Scope Dialog ───────────────────────────── -->
+<div class="overlay" id="trans-scope-overlay" style="display:none">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-glyph">🌐</div>
+    <h2 style="font-size:18px;margin-bottom:8px">What would you like to translate?</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;margin:18px 0">
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer" id="trans-all-label">
+        <input type="radio" name="trans-scope" value="all" id="trans-scope-all" checked style="accent-color:var(--accent);width:16px;height:16px">
+        <div>
+          <div style="font-weight:500;font-size:14px">Full document</div>
+          <div style="font-size:12px;color:var(--muted)">Translate every page</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer" id="trans-pages-label">
+        <input type="radio" name="trans-scope" value="pages" id="trans-scope-pages" style="accent-color:var(--accent);width:16px;height:16px">
+        <div style="flex:1">
+          <div style="font-weight:500;font-size:14px">Specific pages</div>
+          <div style="font-size:12px;color:var(--muted)">e.g. 1-3, 5, 7</div>
+        </div>
+      </label>
+      <div id="trans-pages-range-wrap" style="display:none;padding:0 4px">
+        <input type="text" id="trans-pages-range" placeholder="e.g. 1-3, 5, 7"
+               style="width:100%;padding:9px 12px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;outline:none">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button type="button" id="trans-scope-cancel" style="padding:9px 18px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text-2);cursor:pointer;font-size:13px">Cancel</button>
+      <button type="button" id="trans-scope-confirm" style="padding:9px 22px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-weight:600;cursor:pointer;font-size:13px">Start Translation</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Place-on-Page Modal (Edit & Sign) ─────────────────── -->
+<div class="overlay" id="place-overlay" style="display:none">
+  <div class="modal" style="max-width:680px;width:95vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0">
+      <h2 style="font-size:18px" id="place-modal-title">Click to Place</h2>
+      <button type="button" id="place-close-btn" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:0 4px">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;flex-shrink:0" id="place-modal-hint">Click anywhere on the page to choose where to place your content.</p>
+
+    <!-- Scrollable page preview -->
+    <div style="flex:1;overflow-y:auto;min-height:0">
+      <div style="position:relative;display:inline-block;cursor:crosshair;max-width:100%;width:100%" id="place-preview-wrap">
+        <img id="place-preview-img" style="width:100%;display:block;border-radius:8px;border:1px solid var(--border)" alt="PDF page">
+        <!-- Marker dot -->
+        <div id="place-marker" style="display:none;position:absolute;width:22px;height:22px;border:3px solid #ef4444;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 3px rgba(239,68,68,.25)"></div>
+      </div>
+    </div>
+
+    <!-- Page navigation -->
+    <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-shrink:0">
+      <button type="button" id="place-prev-btn" style="padding:6px 14px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text-2);cursor:pointer;font-size:13px">← Prev</button>
+      <span id="place-page-info" style="font-size:13px;color:var(--muted);flex:1;text-align:center">Page 1 of 1</span>
+      <button type="button" id="place-next-btn" style="padding:6px 14px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text-2);cursor:pointer;font-size:13px">Next →</button>
+    </div>
+
+    <div id="place-loading" style="display:none;text-align:center;padding:20px;font-size:13px;color:var(--muted)">Loading page preview…</div>
+
+    <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;flex-shrink:0">
+      <button type="button" id="place-cancel-btn" style="padding:9px 18px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text-2);cursor:pointer;font-size:13px">Cancel</button>
+      <button type="button" id="place-confirm-btn" disabled style="padding:9px 22px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-weight:600;cursor:pointer;font-size:13px;opacity:.5">Click a spot first</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Organize PDF Modal ───────────────────────────────── -->
+<div class="overlay" id="organize-overlay" style="display:none">
+  <div class="modal" style="max-width:720px;width:95vw;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 style="font-size:18px">Organize Pages</h2>
+      <button type="button" id="org-close-btn" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Drag pages to reorder, then click <strong>Apply</strong>.</p>
+    <div id="org-page-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;min-height:80px"></div>
+    <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">
+      <button type="button" id="org-cancel-btn" style="padding:9px 18px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text-2);cursor:pointer;font-size:13px">Cancel</button>
+      <button type="button" id="org-apply-btn" style="padding:9px 22px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-weight:600;cursor:pointer;font-size:13px">Apply Reorder</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Toast ────────────────────────────────────────────────── -->
 <div class="toast-wrap"><div class="toast" id="toast"></div></div>
 
@@ -1145,6 +1308,38 @@
 
 var selectedTool = null;
 var fileSelected  = false;
+
+/* ── Tool action labels ───────────────────────────────────── */
+var TOOL_LABELS = {
+  'pdf-to-word':    'Convert to Word',
+  'pdf-to-excel':   'Convert to Excel',
+  'pdf-to-ppt':     'Convert to PowerPoint',
+  'pdf-to-image':   'Convert to Images',
+  'pdf-to-jpg':     'Convert to Images',
+  'word-to-pdf':    'Convert to PDF',
+  'image-to-pdf':   'Convert to PDF',
+  'jpg-to-pdf':     'Convert to PDF',
+  'excel-to-pdf':   'Convert to PDF',
+  'ppt-to-pdf':     'Convert to PDF',
+  'merge-pdf':      'Merge PDFs',
+  'split-pdf':      'Split PDF',
+  'compress-pdf':   'Compress PDF',
+  'rotate-pdf':     'Rotate PDF',
+  'protect-pdf':    'Protect PDF',
+  'unlock-pdf':     'Unlock PDF',
+  'watermark-pdf':  'Add Watermark',
+  'number-pdf':     'Add Page Numbers',
+  'page-numbers':   'Add Page Numbers',
+  'edit-pdf':       'Edit PDF',
+  'sign-pdf':       'Sign PDF',
+  'translate-pdf':  'Translate PDF',
+  'organize-pdf':   'Organize PDF',
+  'extract-pages':  'Extract Pages',
+  'remove-pages':   'Remove Pages',
+};
+function getToolLabel(tool) {
+  return TOOL_LABELS[tool] || 'Convert';
+}
 
 /* ── Tool selection ───────────────────────────────────────── */
 function selectTool(card) {
@@ -1183,6 +1378,11 @@ function selectTool(card) {
   var types = accept.replace(/\./g, '').toUpperCase().split(',').join(', ');
   document.getElementById('upload-sub').textContent =
     'Accepts ' + types + (isMulti ? ' (multiple files OK)' : '');
+
+  /* Update step 3 title and button text immediately */
+  var label = getToolLabel(selectedTool);
+  document.getElementById('step3-title').textContent = label;
+  document.getElementById('convert-btn').textContent = '⚡ ' + label;
 
   checkReady();
 }
@@ -1290,6 +1490,17 @@ function showFilePreview(files) {
 
   fileSelected = true;
 
+  /* Animate upload progress bar */
+  var prog = document.getElementById('upload-progress');
+  var bar  = document.getElementById('upload-progress-bar');
+  if (prog && bar) {
+    prog.classList.add('visible');
+    bar.style.width = '0%';
+    setTimeout(function() { bar.style.width = '60%'; }, 50);
+    setTimeout(function() { bar.style.width = '100%'; }, 400);
+    setTimeout(function() { prog.classList.remove('visible'); bar.style.width = '0%'; }, 900);
+  }
+
   var preview = document.getElementById('file-preview');
   var nameEl  = document.getElementById('fp-name');
   var sizeEl  = document.getElementById('fp-size');
@@ -1324,6 +1535,11 @@ function clearFile() {
   document.getElementById('step2-check').classList.remove('visible');
   document.getElementById('step2').classList.remove('active');
 
+  /* Reset progress bar */
+  var prog = document.getElementById('upload-progress');
+  var bar  = document.getElementById('upload-progress-bar');
+  if (prog && bar) { prog.classList.remove('visible'); bar.style.width = '0%'; }
+
   checkReady();
 }
 
@@ -1333,6 +1549,7 @@ function checkReady() {
   var ready = !!(selectedTool && fileSelected);
   btn.disabled = !ready;
   btn.classList.toggle('ready', ready);
+  btn.textContent = '⚡ ' + (selectedTool ? getToolLabel(selectedTool) : 'Convert Now');
 }
 
 /* ── Form submit ──────────────────────────────────────────── */
@@ -1369,12 +1586,72 @@ function handleSubmit(e) {
     }
   }
 
-  /* Show loader */
-  document.getElementById('loader').classList.add('visible');
+  /* Edit PDF or Sign PDF: open page-click placement modal */
+  if (selectedTool === 'edit-pdf' || selectedTool === 'sign-pdf') {
+    e.preventDefault();
+    _openPlaceModal(selectedTool);
+    return;
+  }
+
+  /* Translate PDF: scope dialog → AJAX with progress modal */
+  if (selectedTool === 'translate-pdf') {
+    e.preventDefault();
+    document.getElementById('trans-scope-overlay').style.display = '';
+    return;
+  }
+
+  /* Organize PDF: AJAX preview → modal drag-and-drop → reorder download */
+  if (selectedTool === 'organize-pdf') {
+    e.preventDefault();
+    var form = document.getElementById('convert-form');
+    var fd   = new FormData(form);
+    var btn2 = document.getElementById('convert-btn');
+    btn2.disabled = true;
+    btn2.textContent = '⏳ Loading…';
+
+    fetch('/organize-pdf/preview', { method: 'POST', body: fd, credentials: 'same-origin' })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        btn2.disabled = false; btn2.textContent = '⚡ ' + getToolLabel(selectedTool); btn2.classList.add('ready');
+        if (data.error) {
+          if (data.error === 'quota_exceeded') openPw();
+          else showToast(data.error, true);
+          return;
+        }
+        /* Build page grid */
+        var grid = document.getElementById('org-page-grid');
+        grid.innerHTML = '';
+        data.thumbnails.forEach(function(b64, i) {
+          var item = document.createElement('div');
+          item.className = 'org-page-item';
+          item.dataset.pageIdx = i;
+          item.draggable = true;
+          item.innerHTML =
+            '<img src="data:image/jpeg;base64,' + b64 + '" alt="Page ' + (i+1) + '">' +
+            '<div class="org-page-num">Page ' + (i+1) + '</div>';
+          grid.appendChild(item);
+        });
+        /* Wire drag-and-drop */
+        _initOrgDrag(grid);
+        /* Store preview_id for reorder step */
+        document.getElementById('organize-overlay').dataset.previewId = data.preview_id;
+        document.getElementById('organize-overlay').style.display = '';
+      })
+      .catch(function() {
+        btn2.disabled = false; btn2.textContent = '⚡ ' + getToolLabel(selectedTool); btn2.classList.add('ready');
+        showToast('Failed to load preview. Please try again.', true);
+      });
+    return;
+  }
+
+  /* All tools: use AJAX blob download so errors show as toasts, not raw JSON */
+  e.preventDefault();
+
   var btn = document.getElementById('convert-btn');
   btn.disabled = true;
   btn.textContent = '⏳ Processing…';
   btn.classList.remove('ready');
+  document.getElementById('loader').classList.add('visible');
 
   var msgs = [
     'Converting your file…',
@@ -1389,9 +1666,43 @@ function handleSubmit(e) {
     msgEl.textContent = msgs[idx];
   }, 4000);
 
-  /* Handle JSON quota error response */
-  /* (form submit will navigate away on success — if error occurs, re-enable) */
-  window.addEventListener('pagehide', function() { clearInterval(timer); }, { once: true });
+  var form = document.getElementById('convert-form');
+  var fd   = new FormData(form);
+  var xhr  = new XMLHttpRequest();
+  xhr.open('POST', form.action);
+  xhr.responseType = 'blob';
+  xhr.onload = function() {
+    clearInterval(timer);
+    document.getElementById('loader').classList.remove('visible');
+    btn.disabled = false; btn.textContent = '⚡ ' + getToolLabel(selectedTool); btn.classList.add('ready');
+    if (xhr.status === 200) {
+      var cd    = xhr.getResponseHeader('Content-Disposition') || '';
+      var match = cd.match(/filename[^;=\n]*=["']?([^"'\n;]+)/);
+      var fname = match ? match[1].trim() : 'output.pdf';
+      var url   = URL.createObjectURL(xhr.response);
+      var a     = document.createElement('a'); a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Done! Downloading…');
+    } else {
+      var reader = new FileReader();
+      reader.onload = function() {
+        try {
+          var d = JSON.parse(reader.result);
+          if (d.error === 'quota_exceeded') openPw();
+          else showToast(d.error || 'Processing failed.', true);
+        } catch(ex) { showToast('Processing failed. Please try again.', true); }
+      };
+      reader.readAsText(xhr.response);
+    }
+  };
+  xhr.onerror = function() {
+    clearInterval(timer);
+    document.getElementById('loader').classList.remove('visible');
+    btn.disabled = false; btn.textContent = '⚡ ' + getToolLabel(selectedTool); btn.classList.add('ready');
+    showToast('Network error. Please try again.', true);
+  };
+  xhr.send(fd);
 }
 
 /* ── Signature canvas ─────────────────────────────────────── */
@@ -1487,6 +1798,288 @@ function showToast(msg, isErr) {
   _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 3500);
 }
 
+/* ── Translate PDF: run AJAX after scope confirmed ────── */
+function _doTranslate(transPages) {
+  var form     = document.getElementById('convert-form');
+  var fd       = new FormData(form);
+  if (transPages) fd.append('trans_pages', transPages);
+
+  var overlay  = document.getElementById('translate-overlay');
+  var statusEl = document.getElementById('translate-status-msg');
+  var progBar  = document.getElementById('translate-prog-bar');
+  overlay.style.display = '';
+  statusEl.textContent  = 'Extracting text from PDF…';
+  progBar.style.width   = '10%';
+
+  var msgs = ['Connecting to translation service…','Translating content…','Building translated PDF…','Almost done…'];
+  var pcts = [25, 50, 75, 90];
+  var step = 0;
+  var ticker = setInterval(function() {
+    statusEl.textContent = msgs[step];
+    progBar.style.width  = pcts[step] + '%';
+    step = Math.min(step + 1, msgs.length - 1);
+  }, 3500);
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', form.action);
+  xhr.responseType = 'blob';
+  xhr.onload = function() {
+    clearInterval(ticker);
+    overlay.style.display = 'none';
+    if (xhr.status === 200) {
+      progBar.style.width = '100%';
+      var cd    = xhr.getResponseHeader('Content-Disposition') || '';
+      var match = cd.match(/filename[^;=\n]*=["']?([^"'\n;]+)/);
+      var fname = match ? match[1].trim() : 'translated.pdf';
+      var url   = URL.createObjectURL(xhr.response);
+      var a     = document.createElement('a'); a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Translation complete! Downloading…');
+    } else {
+      var reader = new FileReader();
+      reader.onload = function() {
+        try {
+          var d = JSON.parse(reader.result);
+          if (d.error === 'quota_exceeded') openPw();
+          else showToast(d.error || 'Translation failed.', true);
+        } catch(ex) { showToast('Translation failed. Please try again.', true); }
+      };
+      reader.readAsText(xhr.response);
+    }
+  };
+  xhr.onerror = function() {
+    clearInterval(ticker); overlay.style.display = 'none';
+    showToast('Network error. Please try again.', true);
+  };
+  xhr.send(fd);
+}
+
+/* ── Place-on-Page modal (Edit PDF & Sign PDF) ────────── */
+var _placeState = { tool: null, pageNum: 0, totalPages: 1, xPct: null, yPct: null, formData: null };
+
+function _openPlaceModal(tool) {
+  var form = document.getElementById('convert-form');
+  var fd   = new FormData(form);
+  _placeState.tool      = tool;
+  _placeState.pageNum   = 0;
+  _placeState.xPct      = null;
+  _placeState.yPct      = null;
+  _placeState.formData  = fd;
+
+  var title = tool === 'sign-pdf' ? 'Click to Place Signature' : 'Click to Place Text';
+  var hint  = tool === 'sign-pdf'
+    ? 'Click on the page where you want your signature to appear.'
+    : 'Click on the page where you want to add your text.';
+  document.getElementById('place-modal-title').textContent = title;
+  document.getElementById('place-modal-hint').textContent  = hint;
+  document.getElementById('place-marker').style.display    = 'none';
+  document.getElementById('place-confirm-btn').disabled    = true;
+  document.getElementById('place-confirm-btn').textContent = 'Click a spot first';
+  document.getElementById('place-confirm-btn').style.opacity = '.5';
+  document.getElementById('place-overlay').style.display  = '';
+
+  _loadPlacePage(0);
+}
+
+function _loadPlacePage(pageNum) {
+  var loading = document.getElementById('place-loading');
+  var img     = document.getElementById('place-preview-img');
+  var wrap    = document.getElementById('place-preview-wrap');
+  loading.style.display = 'block';
+  img.style.display     = 'none';
+  document.getElementById('place-marker').style.display = 'none';
+  _placeState.xPct = null; _placeState.yPct = null;
+  document.getElementById('place-confirm-btn').disabled = true;
+  document.getElementById('place-confirm-btn').textContent = 'Click a spot first';
+  document.getElementById('place-confirm-btn').style.opacity = '.5';
+
+  var fd2 = new FormData();
+  fd2.append('page', pageNum);
+  fd2.append('csrf_token', document.querySelector('meta[name="csrf-token"]').content);
+  /* Re-append the file from the original form data */
+  var fi = document.getElementById('file-input');
+  if (fi.files.length) fd2.append('file', fi.files[0]);
+
+  fetch('/pdf-page-preview', { method: 'POST', body: fd2, credentials: 'same-origin' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      loading.style.display = 'none';
+      if (d.error) { showToast(d.error, true); document.getElementById('place-overlay').style.display = 'none'; return; }
+      _placeState.totalPages = d.total_pages || 1;
+      _placeState.pageNum    = pageNum;
+      img.src           = 'data:image/jpeg;base64,' + d.image;
+      img.style.display = 'block';
+      document.getElementById('place-page-info').textContent = 'Page ' + (pageNum + 1) + ' of ' + _placeState.totalPages;
+      document.getElementById('place-prev-btn').disabled = (pageNum === 0);
+      document.getElementById('place-next-btn').disabled = (pageNum >= _placeState.totalPages - 1);
+    })
+    .catch(function() {
+      loading.style.display = 'none';
+      showToast('Could not load page preview.', true);
+      document.getElementById('place-overlay').style.display = 'none';
+    });
+}
+
+function _onPlaceClick(e) {
+  var img  = document.getElementById('place-preview-img');
+  var wrap = document.getElementById('place-preview-wrap');
+  if (!img || e.target !== img) return;
+  var rect = img.getBoundingClientRect();
+  var xPct = ((e.clientX - rect.left) / rect.width)  * 100;
+  var yPct = ((e.clientY - rect.top)  / rect.height) * 100;
+  _placeState.xPct = xPct;
+  _placeState.yPct = yPct;
+  /* Show marker */
+  var marker = document.getElementById('place-marker');
+  marker.style.left    = xPct + '%';
+  marker.style.top     = yPct + '%';
+  marker.style.display = 'block';
+  /* Enable confirm */
+  var confirmBtn = document.getElementById('place-confirm-btn');
+  confirmBtn.disabled    = false;
+  confirmBtn.textContent = 'Confirm Placement';
+  confirmBtn.style.opacity = '1';
+}
+
+function _confirmPlacement() {
+  if (_placeState.xPct === null) return;
+  document.getElementById('place-overlay').style.display = 'none';
+
+  var form = document.getElementById('convert-form');
+  var fd   = new FormData(form);
+  fd.set('x_pct',    _placeState.xPct.toFixed(2));
+  fd.set('y_pct',    _placeState.yPct.toFixed(2));
+  fd.set('page_num', _placeState.pageNum);
+
+  /* Run as AJAX blob download */
+  var btn = document.getElementById('convert-btn');
+  btn.disabled = true; btn.textContent = '⏳ Processing…'; btn.classList.remove('ready');
+  document.getElementById('loader').classList.add('visible');
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', form.action);
+  xhr.responseType = 'blob';
+  xhr.onload = function() {
+    document.getElementById('loader').classList.remove('visible');
+    btn.disabled = false; btn.textContent = '⚡ ' + getToolLabel(selectedTool); btn.classList.add('ready');
+    if (xhr.status === 200) {
+      var cd    = xhr.getResponseHeader('Content-Disposition') || '';
+      var match = cd.match(/filename[^;=\n]*=["']?([^"'\n;]+)/);
+      var fname = match ? match[1].trim() : 'output.pdf';
+      var url   = URL.createObjectURL(xhr.response);
+      var a     = document.createElement('a'); a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Done! Downloading…');
+    } else {
+      var reader = new FileReader();
+      reader.onload = function() {
+        try {
+          var d = JSON.parse(reader.result);
+          if (d.error === 'quota_exceeded') openPw();
+          else showToast(d.error || 'Processing failed.', true);
+        } catch(ex) { showToast('Processing failed. Please try again.', true); }
+      };
+      reader.readAsText(xhr.response);
+    }
+  };
+  xhr.onerror = function() {
+    document.getElementById('loader').classList.remove('visible');
+    btn.disabled = false; btn.textContent = '⚡ ' + getToolLabel(selectedTool); btn.classList.add('ready');
+    showToast('Network error. Please try again.', true);
+  };
+  xhr.send(fd);
+}
+
+/* ── Organize PDF drag-and-drop ───────────────────────── */
+function _initOrgDrag(grid) {
+  var dragged = null;
+
+  grid.addEventListener('dragstart', function(e) {
+    dragged = e.target.closest('.org-page-item');
+    if (dragged) { setTimeout(function() { dragged.classList.add('dragging'); }, 0); }
+  });
+  grid.addEventListener('dragend', function() {
+    if (dragged) dragged.classList.remove('dragging');
+    grid.querySelectorAll('.org-page-item').forEach(function(el) { el.classList.remove('drag-over'); });
+    dragged = null;
+  });
+  grid.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    var over = e.target.closest('.org-page-item');
+    grid.querySelectorAll('.org-page-item').forEach(function(el) { el.classList.remove('drag-over'); });
+    if (over && over !== dragged) over.classList.add('drag-over');
+  });
+  grid.addEventListener('drop', function(e) {
+    e.preventDefault();
+    var over = e.target.closest('.org-page-item');
+    if (!over || over === dragged || !dragged) return;
+    var items = Array.from(grid.querySelectorAll('.org-page-item'));
+    var fromIdx = items.indexOf(dragged);
+    var toIdx   = items.indexOf(over);
+    if (fromIdx < 0 || toIdx < 0) return;
+    if (fromIdx < toIdx) {
+      grid.insertBefore(dragged, over.nextSibling);
+    } else {
+      grid.insertBefore(dragged, over);
+    }
+    grid.querySelectorAll('.org-page-item').forEach(function(el) { el.classList.remove('drag-over'); });
+  });
+}
+
+function _applyOrgReorder() {
+  var overlay   = document.getElementById('organize-overlay');
+  var previewId = overlay.dataset.previewId;
+  var grid      = document.getElementById('org-page-grid');
+  var items     = Array.from(grid.querySelectorAll('.org-page-item'));
+  var order     = items.map(function(el) { return parseInt(el.dataset.pageIdx, 10); });
+
+  var applyBtn = document.getElementById('org-apply-btn');
+  applyBtn.disabled = true;
+  applyBtn.textContent = '⏳ Reordering…';
+
+  /* Build form data for reorder */
+  var csrf = document.querySelector('meta[name="csrf-token"]').content;
+  var fd2  = new FormData();
+  fd2.append('csrf_token', csrf);
+  fd2.append('preview_id', previewId);
+  order.forEach(function(idx) { fd2.append('order[]', idx); });
+
+  var xhr2 = new XMLHttpRequest();
+  xhr2.open('POST', '/organize-pdf/reorder');
+  xhr2.responseType = 'blob';
+  xhr2.onload = function() {
+    applyBtn.disabled = false; applyBtn.textContent = 'Apply Reorder';
+    overlay.style.display = 'none';
+    if (xhr2.status === 200) {
+      var cd    = xhr2.getResponseHeader('Content-Disposition') || '';
+      var match = cd.match(/filename[^;=\n]*=["']?([^"'\n;]+)/);
+      var fname = match ? match[1].trim() : 'organized.pdf';
+      var url   = URL.createObjectURL(xhr2.response);
+      var a     = document.createElement('a'); a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Pages reordered! Downloading…');
+    } else {
+      var reader2 = new FileReader();
+      reader2.onload = function() {
+        try {
+          var d = JSON.parse(reader2.result);
+          if (d.error === 'quota_exceeded') openPw();
+          else showToast(d.error || 'Reorder failed.', true);
+        } catch(ex) { showToast('Reorder failed. Please try again.', true); }
+      };
+      reader2.readAsText(xhr2.response);
+    }
+  };
+  xhr2.onerror = function() {
+    applyBtn.disabled = false; applyBtn.textContent = 'Apply Reorder';
+    showToast('Network error. Please try again.', true);
+  };
+  xhr2.send(fd2);
+}
+
 /* ── Auto-select tool from URL slug ──────────────────────── */
 {% if tool %}
 document.addEventListener('DOMContentLoaded', function() {
@@ -1506,27 +2099,105 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 {% endif %}
 
-/* ── Handle quota error from server (JSON 402) ───────────── */
-document.getElementById('convert-form').addEventListener('submit', function() {
-  /* Intercept fetch-based quota errors (some tools return JSON) */
-  /* Standard form submit: if server returns a file → download; if JSON → need interception */
-  /* For quota errors, open paywall after short delay if page doesn't navigate */
-  setTimeout(function() {
-    fetch('/status', { credentials: 'same-origin' })
-      .then(r => r.json())
-      .then(d => {
-        if (!d.paid && d.conversions_used >= d.conversions_budget) {
-          openPw();
-          /* Re-enable button */
-          var btn = document.getElementById('convert-btn');
-          btn.disabled = false;
-          btn.textContent = '⚡ Convert Now';
-          btn.classList.add('ready');
-          document.getElementById('loader').classList.remove('visible');
-        }
-      })
-      .catch(() => {});
-  }, 2500);
+/* ── Wire up all event listeners (replaces inline handlers) ── */
+document.addEventListener('DOMContentLoaded', function() {
+
+  /* Form submit — wire here to respect CSP nonce */
+  document.getElementById('convert-form').addEventListener('submit', handleSubmit);
+
+  /* Category tab buttons */
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      filterTools(btn.dataset.category, btn);
+    });
+  });
+
+  /* Tool card clicks — direct listeners on every card */
+  document.querySelectorAll('.tool-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      selectTool(card);
+    });
+  });
+
+  /* Initialize: apply the default active tab filter */
+  var defaultTab = document.querySelector('.tab-btn.active');
+  if (defaultTab) filterTools(defaultTab.dataset.category, defaultTab);
+
+  /* File input change */
+  document.getElementById('file-input').addEventListener('change', function(e) {
+    handleFileSelect(e);
+  });
+
+  /* Drop zone clicks + drag events */
+  var dz = document.getElementById('drop-zone');
+  dz.addEventListener('click', function() {
+    document.getElementById('file-input').click();
+  });
+  dz.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') document.getElementById('file-input').click();
+  });
+  dz.addEventListener('dragover',  handleDragOver);
+  dz.addEventListener('dragleave', handleDragLeave);
+  dz.addEventListener('drop',      handleDrop);
+
+  /* Clear file button */
+  var fpClear = document.getElementById('fp-clear-btn');
+  if (fpClear) fpClear.addEventListener('click', clearFile);
+
+  /* Signature clear button */
+  var sigClear = document.getElementById('sig-clear-btn');
+  if (sigClear) sigClear.addEventListener('click', clearSig);
+
+  /* Organize modal buttons */
+  var orgApply   = document.getElementById('org-apply-btn');
+  var orgCancel  = document.getElementById('org-cancel-btn');
+  var orgClose   = document.getElementById('org-close-btn');
+  var orgOverlay = document.getElementById('organize-overlay');
+  if (orgApply)  orgApply.addEventListener('click',  _applyOrgReorder);
+  if (orgCancel) orgCancel.addEventListener('click',  function() { orgOverlay.style.display = 'none'; });
+  if (orgClose)  orgClose.addEventListener('click',   function() { orgOverlay.style.display = 'none'; });
+  orgOverlay.addEventListener('click', function(e) { if (e.target === orgOverlay) orgOverlay.style.display = 'none'; });
+
+  /* Translate scope dialog */
+  var transScopeOverlay = document.getElementById('trans-scope-overlay');
+  document.getElementById('trans-scope-cancel').addEventListener('click', function() {
+    transScopeOverlay.style.display = 'none';
+  });
+  document.querySelectorAll('input[name="trans-scope"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      var wrap = document.getElementById('trans-pages-range-wrap');
+      wrap.style.display = radio.value === 'pages' ? 'block' : 'none';
+      if (radio.value === 'pages') document.getElementById('trans-pages-range').focus();
+    });
+  });
+  document.getElementById('trans-scope-confirm').addEventListener('click', function() {
+    var scope = document.querySelector('input[name="trans-scope"]:checked').value;
+    var pages = scope === 'pages' ? document.getElementById('trans-pages-range').value.trim() : '';
+    if (scope === 'pages' && !pages) {
+      showToast('Please enter a page range, e.g. 1-3, 5', true); return;
+    }
+    transScopeOverlay.style.display = 'none';
+    _doTranslate(pages);
+  });
+  transScopeOverlay.addEventListener('click', function(e) {
+    if (e.target === transScopeOverlay) transScopeOverlay.style.display = 'none';
+  });
+
+  /* Place-on-Page modal */
+  var placeOverlay = document.getElementById('place-overlay');
+  document.getElementById('place-close-btn').addEventListener('click',  function() { placeOverlay.style.display = 'none'; });
+  document.getElementById('place-cancel-btn').addEventListener('click', function() { placeOverlay.style.display = 'none'; });
+  document.getElementById('place-confirm-btn').addEventListener('click', _confirmPlacement);
+  document.getElementById('place-prev-btn').addEventListener('click', function() {
+    if (_placeState.pageNum > 0) _loadPlacePage(_placeState.pageNum - 1);
+  });
+  document.getElementById('place-next-btn').addEventListener('click', function() {
+    if (_placeState.pageNum < _placeState.totalPages - 1) _loadPlacePage(_placeState.pageNum + 1);
+  });
+  document.getElementById('place-preview-wrap').addEventListener('click', _onPlaceClick);
+  placeOverlay.addEventListener('click', function(e) { if (e.target === placeOverlay) placeOverlay.style.display = 'none'; });
 });
+
+/* All conversions now use AJAX — quota errors handled inline via openPw() */
 </script>
 {% endblock %}

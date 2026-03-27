@@ -491,7 +491,7 @@ def google_verification():
 
 
 @app.route("/convert", methods=["POST"])
-@limiter.limit("5 per minute; 50 per hour")  # Stricter rate limit
+@limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "20 per minute; 200 per hour"))
 def convert():
     # ── SERVER-SIDE Quota check using fingerprint ──────────────────────────
     fingerprint = get_client_fingerprint(request)
@@ -2898,10 +2898,26 @@ def translate_pdf_route():
             doc.close()
             return jsonify({"error": f"PDF has {total_pages} pages. Maximum is {MAX_PAGES} for translation."}), 400
 
-        pages_text = [doc.load_page(i).get_text().strip() for i in range(total_pages)]
+        # Optional page selection from frontend dialog
+        trans_pages_param = request.form.get("trans_pages", "").strip()
+        if trans_pages_param:
+            try:
+                pairs = _parse_page_ranges(trans_pages_param, total_pages)
+                selected_indices = sorted({i for s, e in pairs for i in range(s, e + 1)})
+            except Exception:
+                selected_indices = list(range(total_pages))
+        else:
+            selected_indices = list(range(total_pages))
+
+        pages_text = []
+        for i in range(total_pages):
+            if i in selected_indices:
+                pages_text.append(doc.load_page(i).get_text().strip())
+            else:
+                pages_text.append(None)  # skip this page
         doc.close()
 
-        if not any(t for t in pages_text):
+        if not any(t for t in pages_text if t is not None):
             return jsonify({"error": "No text found in PDF. This tool only works on text-based PDFs, not scanned images."}), 400
 
         fitz_font  = _TRANSLATE_FITZ_FONT.get(target_lang, "helv")
@@ -2930,6 +2946,9 @@ def translate_pdf_route():
 
         translated_pages = []
         for page_text in pages_text:
+            if page_text is None:
+                translated_pages.append(None)  # keep original page (not selected)
+                continue
             if not page_text.strip():
                 translated_pages.append("")
                 continue
@@ -3014,6 +3033,8 @@ def translate_pdf_route():
         _paginate = _paginate_rtl if rtl else _paginate_ltr
 
         for t_text in translated_pages:
+            if t_text is None:
+                continue  # page was not selected for translation — skip
             if not t_text:
                 _add_page("")
                 continue
@@ -3093,6 +3114,15 @@ def sign_pdf_route():
     if position not in {"tl", "tc", "tr", "bl", "bc", "br"}:
         position = "br"
 
+    # Click-based placement (x_pct / y_pct from frontend page-click modal)
+    try:
+        sig_x_pct = float(request.form.get("x_pct", ""))
+        sig_y_pct = float(request.form.get("y_pct", ""))
+        use_click_pos = 0.0 <= sig_x_pct <= 100.0 and 0.0 <= sig_y_pct <= 100.0
+    except (ValueError, TypeError):
+        sig_x_pct = sig_y_pct = 0.0
+        use_click_pos = False
+
     pages_opt    = request.form.get("pages", "last")
     pages_custom = request.form.get("pages_custom", "")
 
@@ -3150,12 +3180,18 @@ def sign_pdf_route():
             sig_w  = pw * size_factor
             sig_h  = sig_w * (sig_h_px / max(sig_w_px, 1))
 
-            row, col = position[0], position[1]
-            if   col == "l": x = MARGIN
-            elif col == "r": x = pw - sig_w - MARGIN
-            else:            x = (pw - sig_w) / 2
-            if row == "t":   y = MARGIN
-            else:            y = ph - sig_h - MARGIN
+            if use_click_pos:
+                x = (sig_x_pct / 100.0) * pw - sig_w / 2
+                y = (sig_y_pct / 100.0) * ph - sig_h / 2
+                x = max(0.0, min(x, pw - sig_w))
+                y = max(0.0, min(y, ph - sig_h))
+            else:
+                row, col = position[0], position[1]
+                if   col == "l": x = MARGIN
+                elif col == "r": x = pw - sig_w - MARGIN
+                else:            x = (pw - sig_w) / 2
+                if row == "t":   y = MARGIN
+                else:            y = ph - sig_h - MARGIN
 
             page.insert_image(fitz.Rect(x, y, x + sig_w, y + sig_h), stream=sig_png)
             signed_count += 1

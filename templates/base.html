@@ -136,19 +136,6 @@
       color: var(--text);
       letter-spacing: -.3px;
     }
-    .logo-badge {
-      font-family: var(--mono);
-      font-size: 9px;
-      font-weight: 500;
-      letter-spacing: .6px;
-      text-transform: uppercase;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: var(--accent-dim);
-      color: var(--accent);
-      border: 1px solid var(--accent-mid);
-    }
-
     /* Quota pill */
     .quota-pill {
       display: flex;
@@ -374,8 +361,7 @@
     @media (max-width: 600px) {
       .nav-inner { padding: 0 16px; }
       .wrap       { padding: 0 16px; }
-      .logo-badge { display: none; }
-      .footer-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+.footer-row { flex-direction: column; align-items: flex-start; gap: 12px; }
       .modal { padding: 24px 18px; border-radius: var(--radius-lg); }
     }
   </style>
@@ -390,7 +376,6 @@
     <a href="{{ url_for('index') }}" class="logo" aria-label="Convertly home">
       <div class="logo-dot"></div>
       <span class="logo-name">Convertly</span>
-      <span class="logo-badge">Free</span>
     </a>
     <div class="quota-pill" id="quota-pill" title="Your free conversion quota">
       <div class="quota-dot" id="quota-dot"></div>
@@ -434,7 +419,20 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn-paypal">💳&nbsp;&nbsp;Pay $2.00 with PayPal</button>
     </form>
-    <button class="btn-ghost" onclick="closePw()">Maybe later</button>
+
+    <!-- Coupon / voucher section -->
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center">Have a coupon code?</p>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="coupon-input" placeholder="Enter code"
+               style="flex:1;padding:9px 12px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;outline:none;text-transform:uppercase;letter-spacing:1px">
+        <button type="button" id="coupon-apply-btn"
+                style="padding:9px 16px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text);font-size:13px;cursor:pointer;white-space:nowrap;font-weight:500">Apply</button>
+      </div>
+      <div id="coupon-msg" style="font-size:12px;margin-top:6px;min-height:18px;text-align:center"></div>
+    </div>
+
+    <button class="btn-ghost" id="pw-close-btn">Maybe later</button>
   </div>
 </div>
 
@@ -479,6 +477,57 @@ document.getElementById('paywall').addEventListener('click', e => {
   if (e.target === document.getElementById('paywall')) closePw();
 });
 {% if show_paywall %}document.addEventListener('DOMContentLoaded', openPw);{% endif %}
+document.addEventListener('DOMContentLoaded', function() {
+  var pwClose = document.getElementById('pw-close-btn');
+  if (pwClose) pwClose.addEventListener('click', closePw);
+
+  /* Coupon / voucher redemption */
+  var couponInput = document.getElementById('coupon-input');
+  var couponBtn   = document.getElementById('coupon-apply-btn');
+  var couponMsg   = document.getElementById('coupon-msg');
+
+  function applyCoupon() {
+    var code = (couponInput.value || '').trim().toUpperCase();
+    if (!code) { couponMsg.style.color = 'var(--danger)'; couponMsg.textContent = 'Please enter a code.'; return; }
+    couponBtn.disabled = true; couponBtn.textContent = '…';
+    couponMsg.style.color = 'var(--muted)'; couponMsg.textContent = 'Checking…';
+    fetch('/redeem-voucher', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name=csrf-token]') ? document.querySelector('meta[name=csrf-token]').content : '' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ code: code })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
+    .then(function(res) {
+      couponBtn.disabled = false; couponBtn.textContent = 'Apply';
+      if (res.ok && res.d.success) {
+        couponMsg.style.color = '#4ade80';
+        couponMsg.textContent = '✓ Code applied! ' + res.d.remaining + ' conversions unlocked.';
+        couponInput.value = '';
+        /* Close paywall after short delay */
+        setTimeout(closePw, 1800);
+        /* Refresh quota display */
+        fetch('/status', { credentials: 'same-origin' }).then(r => r.json()).then(function(d) {
+          var u = document.getElementById('q-used'), t = document.getElementById('q-total');
+          if (u) u.textContent = d.conversions_used ?? 0;
+          if (t) t.textContent = d.conversions_budget ?? 3;
+          var pill = document.getElementById('quota-pill');
+          if (pill && d.paid) pill.classList.remove('exhausted');
+        }).catch(() => {});
+      } else {
+        couponMsg.style.color = 'var(--danger)';
+        couponMsg.textContent = res.d.error || 'Invalid code.';
+      }
+    })
+    .catch(function() {
+      couponBtn.disabled = false; couponBtn.textContent = 'Apply';
+      couponMsg.style.color = 'var(--danger)'; couponMsg.textContent = 'Network error. Try again.';
+    });
+  }
+
+  if (couponBtn) couponBtn.addEventListener('click', applyCoupon);
+  if (couponInput) couponInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') applyCoupon(); });
+});
 </script>
 
 {% block extra_js %}{% endblock %}
