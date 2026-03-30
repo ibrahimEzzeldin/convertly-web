@@ -493,18 +493,6 @@ def google_verification():
 @app.route("/convert", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "20 per minute; 200 per hour"))
 def convert():
-    # ── SERVER-SIDE Quota check using fingerprint ──────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    used, budget, remaining, is_pro = ConversionCounter.get_status(fingerprint)
-
-    if used >= budget and not is_pro:
-        return jsonify({
-            "error": "quota_exceeded",
-            "message": "You've used all your free conversions.",
-            "used": used,
-            "budget": budget,
-        }), 402
-
     # ── Validate mode & file ───────────────────────────────────────────────
     mode = request.form.get("mode")
     file = request.files.get("file")
@@ -525,6 +513,18 @@ def convert():
         if not any(header.startswith(m) for m in expected_magic):
             logger.warning("Magic byte mismatch for file: %s", file.filename)
             return jsonify({"error": "File content does not match its extension."}), 400
+
+    # ── SERVER-SIDE Quota check using fingerprint ──────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    used, budget, remaining, is_pro = ConversionCounter.get_status(fingerprint)
+
+    if used >= budget and not is_pro:
+        return jsonify({
+            "error": "quota_exceeded",
+            "message": "You've used all your free conversions.",
+            "used": used,
+            "budget": budget,
+        }), 402
 
     uid       = str(uuid.uuid4())
     safe_name = os.path.basename(file.filename)
@@ -580,6 +580,12 @@ def convert():
 @app.route("/merge-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def merge_pdf_route():
+    files = request.files.getlist("files[]")
+    if len(files) < 2:
+        return jsonify({"error": "Please upload at least 2 PDF files to merge."}), 400
+    if len(files) > 20:
+        return jsonify({"error": "Maximum 20 files can be merged at once."}), 400
+
     # ── Quota check ────────────────────────────────────────────────────────
     fingerprint = get_client_fingerprint(request)
     _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
@@ -591,12 +597,6 @@ def merge_pdf_route():
             "conversions_used":   _cc_used,
             "conversions_budget": _cc_budget,
         }), 402
-
-    files = request.files.getlist("files[]")
-    if len(files) < 2:
-        return jsonify({"error": "Please upload at least 2 PDF files to merge."}), 400
-    if len(files) > 20:
-        return jsonify({"error": "Maximum 20 files can be merged at once."}), 400
 
     # ── Validate every file before saving anything ─────────────────────────
     total_size = 0
@@ -728,18 +728,6 @@ def _parse_page_ranges(ranges_str, total_pages):
 @app.route("/split-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def split_pdf_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     # ── Validate file ──────────────────────────────────────────────────────
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
@@ -755,6 +743,18 @@ def split_pdf_route():
     split_mode = request.form.get("split_mode", "ranges")
     if split_mode not in ("ranges", "every_n", "individual"):
         return jsonify({"error": "Invalid split mode."}), 400
+
+    # ── Quota check ────────────────────────────────────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     # ── Save source file ───────────────────────────────────────────────────
     uid       = str(uuid.uuid4())
@@ -911,18 +911,6 @@ def split_pdf_route():
 @app.route("/remove-pages", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def remove_pages_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     # ── Validate file ──────────────────────────────────────────────────────
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
@@ -938,6 +926,18 @@ def remove_pages_route():
     pages_input = request.form.get("pages", "").strip()
     if not pages_input:
         return jsonify({"error": "Please enter at least one page number to remove."}), 400
+
+    # ── Quota check ────────────────────────────────────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     # ── Save source file ───────────────────────────────────────────────────
     uid       = str(uuid.uuid4())
@@ -1032,18 +1032,6 @@ def remove_pages_route():
 @app.route("/extract-pages", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def extract_pages_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     # ── Validate file ──────────────────────────────────────────────────────
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
@@ -1059,6 +1047,18 @@ def extract_pages_route():
     pages_input = request.form.get("pages", "").strip()
     if not pages_input:
         return jsonify({"error": "Please enter at least one page number or range to extract."}), 400
+
+    # ── Quota check ────────────────────────────────────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     # ── Save source file ───────────────────────────────────────────────────
     uid       = str(uuid.uuid4())
@@ -1185,18 +1185,6 @@ def _compress_pdf_render(src_path, out_path, dpi, jpeg_quality):
 @app.route("/compress-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def compress_pdf_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     # ── Validate file ──────────────────────────────────────────────────────
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
@@ -1212,6 +1200,18 @@ def compress_pdf_route():
     level = request.form.get("level", "lossless")
     if level not in ("lossless", "balanced", "maximum"):
         return jsonify({"error": "Invalid compression level."}), 400
+
+    # ── Quota check ────────────────────────────────────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     # ── Save source file ───────────────────────────────────────────────────
     uid       = str(uuid.uuid4())
@@ -1606,6 +1606,17 @@ def invoice():
 @app.route("/pdf-to-jpg", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def pdf_to_jpg_route():
+    # ── Validate file ──────────────────────────────────────────────────────
+    file = request.files.get("file")
+    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    header = file.read(8)
+    file.seek(0)
+    if not header.startswith(b"%PDF"):
+        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
+
     # ── Quota check ────────────────────────────────────────────────────────
     fingerprint = get_client_fingerprint(request)
     _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
@@ -1617,17 +1628,6 @@ def pdf_to_jpg_route():
             "conversions_used":   _cc_used,
             "conversions_budget": _cc_budget,
         }), 402
-
-    # ── Validate file ──────────────────────────────────────────────────────
-    file = request.files.get("file")
-    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
-    if not is_valid:
-        return jsonify({"error": error_msg}), 400
-
-    header = file.read(8)
-    file.seek(0)
-    if not header.startswith(b"%PDF"):
-        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
 
     # ── DPI parameter (low=96, medium=150, high=300) ───────────────────────
     DPI_MAP = {"low": 96, "medium": 150, "high": 300}
@@ -1756,18 +1756,6 @@ def pdf_to_jpg_route():
 @app.route("/jpg-to-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def jpg_to_pdf_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     # ── Validate files ─────────────────────────────────────────────────────
     files = request.files.getlist("files[]")
     files = [f for f in files if f and f.filename]
@@ -1790,6 +1778,18 @@ def jpg_to_pdf_route():
             return jsonify({"error": f"'{f.filename}' is empty."}), 400
         if size > app.config["MAX_FILE_SIZE"]:
             return jsonify({"error": f"'{f.filename}' exceeds the {app.config['MAX_FILE_SIZE'] // (1024*1024)} MB limit."}), 400
+
+    # ── Quota check ────────────────────────────────────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     # ── Save and convert ───────────────────────────────────────────────────
     uid        = str(uuid.uuid4())
@@ -1903,18 +1903,6 @@ def jpg_to_pdf_route():
 @app.route("/watermark-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def watermark_pdf_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     # ── Validate file ──────────────────────────────────────────────────────
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
@@ -1932,6 +1920,18 @@ def watermark_pdf_route():
         return jsonify({"error": "Watermark text cannot be empty."}), 400
     if len(text) > 80:
         return jsonify({"error": "Watermark text is too long (max 80 characters)."}), 400
+
+    # ── Quota check ────────────────────────────────────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     # Opacity: 0.05 – 0.60
     try:
@@ -2061,6 +2061,17 @@ def watermark_pdf_route():
 @app.route("/rotate-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def rotate_pdf_route():
+    # ── Validate file ──────────────────────────────────────────────────────
+    file = request.files.get("file")
+    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    header = file.read(8)
+    file.seek(0)
+    if not header.startswith(b"%PDF"):
+        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
+
     # ── Quota check ────────────────────────────────────────────────────────
     fingerprint = get_client_fingerprint(request)
     _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
@@ -2072,17 +2083,6 @@ def rotate_pdf_route():
             "conversions_used":   _cc_used,
             "conversions_budget": _cc_budget,
         }), 402
-
-    # ── Validate file ──────────────────────────────────────────────────────
-    file = request.files.get("file")
-    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
-    if not is_valid:
-        return jsonify({"error": error_msg}), 400
-
-    header = file.read(8)
-    file.seek(0)
-    if not header.startswith(b"%PDF"):
-        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
 
     # ── Parameters ─────────────────────────────────────────────────────────
     # angle: 90 (CW), 180, 270 (CCW)
@@ -2185,18 +2185,6 @@ def rotate_pdf_route():
 @app.route("/unlock-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def unlock_pdf_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     # ── Validate file (lenient — broken header possible on encrypted PDFs) ─
     file = request.files.get("file")
     if not file or file.filename == "":
@@ -2211,6 +2199,18 @@ def unlock_pdf_route():
         return jsonify({"error": "File is empty."}), 400
     if size > app.config["MAX_FILE_SIZE"]:
         return jsonify({"error": f"File too large. Maximum {app.config['MAX_FILE_SIZE'] // (1024*1024)} MB."}), 400
+
+    # ── Quota check ────────────────────────────────────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     # ── Password ───────────────────────────────────────────────────────────
     password = request.form.get("password", "")   # may be empty for owner-lock only
@@ -2290,18 +2290,6 @@ def unlock_pdf_route():
 @app.route("/protect-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def protect_pdf_route():
-    # ── Quota check ────────────────────────────────────────────────────────
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     # ── Validate file ──────────────────────────────────────────────────────
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
@@ -2320,6 +2308,18 @@ def protect_pdf_route():
         return jsonify({"error": "A user (open) password is required."}), 400
     if len(user_pw) > 128 or len(owner_pw) > 128:
         return jsonify({"error": "Password too long (max 128 characters)."}), 400
+
+    # ── Quota check ────────────────────────────────────────────────────────
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     # If owner password not set, make it the same as user password
     if not owner_pw:
@@ -2408,6 +2408,16 @@ def protect_pdf_route():
 @app.route("/page-numbers", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def page_numbers_route():
+    # ── Validate file ──────────────────────────────────────────────────────
+    file = request.files.get("file")
+    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    header = file.read(8); file.seek(0)
+    if not header.startswith(b"%PDF"):
+        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
+
     # ── Quota check ────────────────────────────────────────────────────────
     fingerprint = get_client_fingerprint(request)
     _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
@@ -2419,16 +2429,6 @@ def page_numbers_route():
             "conversions_used":   _cc_used,
             "conversions_budget": _cc_budget,
         }), 402
-
-    # ── Validate file ──────────────────────────────────────────────────────
-    file = request.files.get("file")
-    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
-    if not is_valid:
-        return jsonify({"error": error_msg}), 400
-
-    header = file.read(8); file.seek(0)
-    if not header.startswith(b"%PDF"):
-        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
 
     # ── Parameters ─────────────────────────────────────────────────────────
     # position: tl / tc / tr / bl / bc / br  (top/bottom · left/center/right)
@@ -3086,16 +3086,6 @@ def translate_pdf_route():
 @app.route("/sign-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def sign_pdf_route():
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
     if not is_valid:
@@ -3109,6 +3099,16 @@ def sign_pdf_route():
     sig_file     = request.files.get("signature_file")
     if not sig_data_url and (not sig_file or sig_file.filename == ""):
         return jsonify({"error": "No signature provided. Draw or upload a signature first."}), 400
+
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     position = request.form.get("position", "br")
     if position not in {"tl", "tc", "tr", "bl", "bc", "br"}:
@@ -3313,16 +3313,6 @@ def pdf_page_preview():
 @app.route("/edit-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def edit_pdf_route():
-    fingerprint = get_client_fingerprint(request)
-    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
-    if _cc_used >= _cc_budget and not _cc_pro:
-        return jsonify({
-            "error":              "quota_exceeded",
-            "message":            "You've used all your free conversions. Upgrade to continue.",
-            "conversions_used":   _cc_used,
-            "conversions_budget": _cc_budget,
-        }), 402
-
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
     if not is_valid:
@@ -3337,6 +3327,16 @@ def edit_pdf_route():
         return jsonify({"error": "No text provided."}), 400
     if len(text) > 500:
         return jsonify({"error": "Text is too long (max 500 characters)."}), 400
+
+    fingerprint = get_client_fingerprint(request)
+    _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
+    if _cc_used >= _cc_budget and not _cc_pro:
+        return jsonify({
+            "error":              "quota_exceeded",
+            "message":            "You've used all your free conversions. Upgrade to continue.",
+            "conversions_used":   _cc_used,
+            "conversions_budget": _cc_budget,
+        }), 402
 
     position = request.form.get("position", "tl")
     if position not in {"tl", "tc", "tr", "bl", "bc", "br"}:
