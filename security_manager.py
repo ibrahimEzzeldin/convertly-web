@@ -15,6 +15,7 @@ import hmac
 import sqlite3
 import json
 import threading
+import tempfile
 from functools import wraps
 from datetime import datetime, timedelta
 from typing import Dict, Tuple, Optional
@@ -25,7 +26,9 @@ import re
 logger = logging.getLogger(__name__)
 
 # ─── SERVER-SIDE STATE STORE ───────────────────────────────────────────────
-_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "quota.db")
+# QUOTA_DB_PATH env var lets you point to a persistent disk on Render/Heroku.
+# Falls back to /tmp (always writable on Linux) then to in-memory as last resort.
+_DB_PATH = os.getenv("QUOTA_DB_PATH", os.path.join(tempfile.gettempdir(), "quota.db"))
 
 class SessionStore:
     """SQLite-backed session store with expiration. Survives server restarts."""
@@ -33,61 +36,112 @@ class SessionStore:
     def __init__(self, db_path: str = _DB_PATH):
         self._db_path = db_path
         self._lock = threading.RLock()  # reentrant so get() can call delete()
+        # Fallback to in-memory dict if SQLite is unavailable
+        self._fallback: Optional[Dict] = None
+        self._fallback_expiry: Optional[Dict] = None
         self._init_db()
 
     def _conn(self):
-        return sqlite3.connect(self._db_path)
+        conn = sqlite3.connect(self._db_path, timeout=10)
+        conn.execute("PRAGMA journal_mode=WAL")   # better concurrent access
+        return conn
 
     def _init_db(self):
-        with self._lock:
-            with self._conn() as c:
-                c.execute("""
-                    CREATE TABLE IF NOT EXISTS store (
-                        key        TEXT PRIMARY KEY,
-                        data       TEXT NOT NULL,
-                        expires_at REAL NOT NULL
-                    )
-                """)
+        try:
+            with self._lock:
+                with self._conn() as c:
+                    c.execute("""
+                        CREATE TABLE IF NOT EXISTS store (
+                            key        TEXT PRIMARY KEY,
+                            data       TEXT NOT NULL,
+                            expires_at REAL NOT NULL
+                        )
+                    """)
+            logger.info("SessionStore: using SQLite at %s", self._db_path)
+        except Exception as e:
+            logger.warning("SessionStore: SQLite unavailable (%s), falling back to in-memory", e)
+            self._fallback = {}
+            self._fallback_expiry = {}
 
     def set(self, key: str, data: dict, ttl_hours: int = 24):
         expires_at = time.time() + ttl_hours * 3600
-        with self._lock:
-            with self._conn() as c:
-                c.execute(
-                    "INSERT OR REPLACE INTO store (key, data, expires_at) VALUES (?,?,?)",
-                    (key, json.dumps(data), expires_at),
-                )
-                # Prune expired rows on every write
-                c.execute("DELETE FROM store WHERE expires_at < ?", (time.time(),))
+        if self._fallback is not None:
+            with self._lock:
+                self._fallback[key] = data
+                self._fallback_expiry[key] = expires_at
+            return
+        try:
+            with self._lock:
+                with self._conn() as c:
+                    c.execute(
+                        "INSERT OR REPLACE INTO store (key, data, expires_at) VALUES (?,?,?)",
+                        (key, json.dumps(data), expires_at),
+                    )
+                    c.execute("DELETE FROM store WHERE expires_at < ?", (time.time(),))
+        except Exception as e:
+            logger.error("SessionStore.set error: %s", e)
 
     def get(self, key: str) -> Optional[dict]:
-        with self._lock:
-            with self._conn() as c:
-                row = c.execute(
-                    "SELECT data, expires_at FROM store WHERE key=?", (key,)
-                ).fetchone()
-        if row is None:
+        if self._fallback is not None:
+            with self._lock:
+                exp = self._fallback_expiry.get(key)
+                if exp and time.time() > exp:
+                    self._fallback.pop(key, None)
+                    self._fallback_expiry.pop(key, None)
+                    return None
+                return self._fallback.get(key)
+        try:
+            with self._lock:
+                with self._conn() as c:
+                    row = c.execute(
+                        "SELECT data, expires_at FROM store WHERE key=?", (key,)
+                    ).fetchone()
+            if row is None:
+                return None
+            data_json, expires_at = row
+            if time.time() > expires_at:
+                self.delete(key)
+                return None
+            return json.loads(data_json)
+        except Exception as e:
+            logger.error("SessionStore.get error: %s", e)
             return None
-        data_json, expires_at = row
-        if time.time() > expires_at:
-            self.delete(key)
-            return None
-        return json.loads(data_json)
 
     def delete(self, key: str):
-        with self._lock:
-            with self._conn() as c:
-                c.execute("DELETE FROM store WHERE key=?", (key,))
+        if self._fallback is not None:
+            with self._lock:
+                self._fallback.pop(key, None)
+                self._fallback_expiry.pop(key, None)
+            return
+        try:
+            with self._lock:
+                with self._conn() as c:
+                    c.execute("DELETE FROM store WHERE key=?", (key,))
+        except Exception as e:
+            logger.error("SessionStore.delete error: %s", e)
 
     def _cleanup(self):
-        with self._lock:
-            with self._conn() as c:
-                c.execute("DELETE FROM store WHERE expires_at < ?", (time.time(),))
+        if self._fallback is not None:
+            return
+        try:
+            with self._lock:
+                with self._conn() as c:
+                    c.execute("DELETE FROM store WHERE expires_at < ?", (time.time(),))
+        except Exception as e:
+            logger.error("SessionStore._cleanup error: %s", e)
 
     def clear_all(self):
-        with self._lock:
-            with self._conn() as c:
-                c.execute("DELETE FROM store")
+        if self._fallback is not None:
+            with self._lock:
+                self._fallback.clear()
+                self._fallback_expiry.clear()
+            return
+        try:
+            with self._lock:
+                with self._conn() as c:
+                    c.execute("DELETE FROM store")
+        except Exception as e:
+            logger.error("SessionStore.clear_all error: %s", e)
 
 # Global store instance
 _session_store = SessionStore()
