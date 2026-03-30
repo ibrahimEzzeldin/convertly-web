@@ -578,6 +578,75 @@
   .upload-zone { padding: 24px 16px; }
   .opt-field { min-width: 100%; }
 }
+
+/* ── Recent history ──────────────────────────────────────── */
+.history-section {
+  max-width: 960px;
+  margin: 0 auto 48px;
+  padding: 0 24px;
+  animation: fadeUp .6s var(--ease) both;
+  animation-delay: .2s;
+}
+.history-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: border-color var(--t), background var(--t);
+}
+.history-item:hover {
+  border-color: var(--border-2);
+  background: var(--surface-2);
+}
+.history-item-icon { font-size: 16px; flex-shrink: 0; }
+.history-item-name {
+  font-size: 13px;
+  color: var(--text-2);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history-item-tool {
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.history-item-dl {
+  font-size: 11px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.history-clear {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+}
+.history-clear:hover { color: var(--danger); }
 </style>
 {% endblock %}
 
@@ -1135,6 +1204,16 @@
         <!-- PDF to JPG -->
         <div class="opts-inner" id="opts-jpg" style="display:none">
           <div class="opt-field">
+            <label class="opt-label" for="jpg-fmt">Output Format</label>
+            <div class="opt-select-wrap">
+              <select class="opt-select" name="fmt" id="jpg-fmt">
+                <option value="jpg" selected>JPG (smallest size)</option>
+                <option value="png">PNG (lossless)</option>
+                <option value="webp">WebP (best quality/size)</option>
+              </select>
+            </div>
+          </div>
+          <div class="opt-field">
             <label class="opt-label" for="jpg-dpi">Quality / DPI</label>
             <div class="opt-select-wrap">
               <select class="opt-select" name="dpi" id="jpg-dpi">
@@ -1327,6 +1406,15 @@
     </div>
   </div>
 </div>
+
+<!-- Recent conversions history -->
+<section class="history-section" id="historySection" style="display:none">
+  <div class="history-title">
+    🕓 Recent conversions
+    <button class="history-clear" id="historyClear" title="Clear history">Clear</button>
+  </div>
+  <div class="history-list" id="historyList"></div>
+</section>
 
 <!-- ── Toast ────────────────────────────────────────────────── -->
 <div class="toast-wrap"><div class="toast" id="toast"></div></div>
@@ -1716,7 +1804,7 @@ function handleSubmit(e) {
       var url   = URL.createObjectURL(xhr.response);
       var a     = document.createElement('a'); a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      addToHistory(fname, url, getToolLabel(selectedTool));
       showToast('Done! Downloading…');
     } else {
       var reader = new FileReader();
@@ -1970,7 +2058,7 @@ function _doTranslate(transPages) {
       var url   = URL.createObjectURL(xhr.response);
       var a     = document.createElement('a'); a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      addToHistory(fname, url, getToolLabel('translate-pdf'));
       showToast('Translation complete! Downloading…');
     } else {
       var reader = new FileReader();
@@ -2117,7 +2205,7 @@ function _confirmPlacement() {
       var url   = URL.createObjectURL(xhr.response);
       var a     = document.createElement('a'); a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      addToHistory(fname, url, getToolLabel(selectedTool));
       showToast('Done! Downloading…');
     } else {
       var reader = new FileReader();
@@ -2206,7 +2294,7 @@ function _applyOrgReorder() {
       var url   = URL.createObjectURL(xhr2.response);
       var a     = document.createElement('a'); a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      addToHistory(fname, url, getToolLabel('organize-pdf'));
       showToast('Pages reordered! Downloading…');
     } else {
       var reader2 = new FileReader();
@@ -2347,5 +2435,52 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /* All conversions now use AJAX — quota errors handled inline via openPw() */
+
+// ── File history (localStorage) ───────────────────────────
+var HISTORY_KEY = 'convertly_history';
+var HISTORY_MAX = 5;
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function saveHistory(items) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+}
+
+function addToHistory(filename, url, tool) {
+  var items = getHistory();
+  // Remove duplicate if same filename exists
+  var filtered = items.filter(function(i) { return i.filename !== filename; });
+  filtered.unshift({ filename: filename, url: url, tool: tool, ts: Date.now() });
+  saveHistory(filtered.slice(0, HISTORY_MAX));
+  renderHistory();
+}
+
+function renderHistory() {
+  var section = document.getElementById('historySection');
+  var list    = document.getElementById('historyList');
+  if (!section || !list) return;
+  var items = getHistory();
+  if (!items.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  list.innerHTML = items.map(function(item) {
+    return '<a class="history-item" href="' + item.url + '" download="' + item.filename + '">' +
+      '<span class="history-item-icon">📄</span>' +
+      '<span class="history-item-name">' + item.filename + '</span>' +
+      '<span class="history-item-tool">' + item.tool + '</span>' +
+      '<span class="history-item-dl">↓ Download</span>' +
+      '</a>';
+  }).join('');
+}
+
+document.getElementById('historyClear') && document.getElementById('historyClear').addEventListener('click', function() {
+  saveHistory([]);
+  renderHistory();
+});
+
+// Render on page load
+renderHistory();
 </script>
 {% endblock %}

@@ -1,10 +1,11 @@
 """
-translation_service.py — MyMemory translation engine (no sleeps, no retries)
+translation_service.py — DeepL (primary) + MyMemory (fallback) translation engine
 """
 import os
 import requests
 import logging
 import time
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -80,14 +81,41 @@ def split_into_chunks(text: str, max_size: int = MAX_CHUNK_SIZE) -> list:
     return chunks or [text]
 
 
-def translate_chunk(text: str, from_code: str, to_code: str) -> str:
+def _translate_deepl(text: str, source_lang: str, target_lang: str) -> Optional[str]:
+    """Translate using DeepL free API. Returns None if unavailable."""
+    api_key = os.getenv("DEEPL_API_KEY", "")
+    if not api_key:
+        return None
+
+    # DeepL uses uppercase 2-letter codes
+    src = source_lang.upper().split("-")[0] if source_lang.lower() != "auto" else None
+    tgt = target_lang.upper().split("-")[0]
+
+    payload = {"text": [text], "target_lang": tgt}
+    if src:
+        payload["source_lang"] = src
+
+    try:
+        resp = requests.post(
+            "https://api-free.deepl.com/v2/translate",
+            headers={"Authorization": f"DeepL-Auth-Key {api_key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            return resp.json()["translations"][0]["text"]
+        logger.warning("DeepL returned %s: %s", resp.status_code, resp.text[:100])
+        return None
+    except Exception as e:
+        logger.warning("DeepL error: %s", e)
+        return None
+
+
+def _translate_mymemory(text: str, from_code: str, to_code: str) -> Optional[str]:
     """Translate one chunk via MyMemory with limited retries and backoff.
 
-    Returns original text on failure (safe fallback).
+    Returns None on failure so the caller can decide on the fallback.
     """
-    if not text or not text.strip():
-        return text
-
     langpair = f"{_map(from_code)}|{_map(to_code)}"
     params = {"q": text, "langpair": langpair}
     if MYMEMORY_EMAIL:
@@ -113,10 +141,10 @@ def translate_chunk(text: str, from_code: str, to_code: str) -> str:
                     time.sleep(backoff_s)
                     backoff_s *= 2
                     continue
-                return text
+                return None
 
             logger.warning("MyMemory unexpected response %s: %s", status, str(translated)[:80])
-            return text
+            return None
 
         except requests.Timeout:
             logger.warning("MyMemory request timeout on attempt %d", attempt)
@@ -124,7 +152,7 @@ def translate_chunk(text: str, from_code: str, to_code: str) -> str:
                 time.sleep(backoff_s)
                 backoff_s *= 2
                 continue
-            return text
+            return None
 
         except requests.RequestException as exc:
             logger.warning("MyMemory request exception: %s (attempt %d)", exc, attempt)
@@ -132,12 +160,35 @@ def translate_chunk(text: str, from_code: str, to_code: str) -> str:
                 time.sleep(backoff_s)
                 backoff_s *= 2
                 continue
-            return text
+            return None
 
         except Exception as exc:
             logger.error("MyMemory error: %s", exc)
-            return text
+            return None
 
+    return None
+
+
+def translate_chunk(text: str, from_code: str, to_code: str) -> str:
+    """Translate one chunk, trying DeepL first then falling back to MyMemory.
+
+    Returns original text if all providers fail (safe fallback).
+    """
+    if not text or not text.strip():
+        return text
+
+    # Try DeepL first (higher quality, more reliable)
+    result = _translate_deepl(text, from_code, to_code)
+    if result is not None:
+        return result
+
+    # Fall back to MyMemory
+    result = _translate_mymemory(text, from_code, to_code)
+    if result is not None:
+        return result
+
+    # Both providers failed — return original text unchanged
+    logger.warning("All translation providers failed for chunk: '%s'", text[:40])
     return text
 
 

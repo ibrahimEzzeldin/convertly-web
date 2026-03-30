@@ -1633,6 +1633,15 @@ def pdf_to_jpg_route():
     DPI_MAP = {"low": 96, "medium": 150, "high": 300}
     dpi = DPI_MAP.get(request.form.get("dpi", "medium"), 150)
 
+    # ── Format parameter (jpg, png, webp) ──────────────────────────────────
+    fmt = request.form.get("fmt", "jpg").lower()
+    if fmt not in ("jpg", "jpeg", "png", "webp"):
+        fmt = "jpg"
+    if fmt == "jpeg":
+        fmt = "jpg"
+    IMG_EXT  = {"jpg": ".jpg", "png": ".png", "webp": ".webp"}[fmt]
+    IMG_MIME = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[fmt]
+
     # ── Save source file ───────────────────────────────────────────────────
     uid       = str(uuid.uuid4())
     safe_name = os.path.basename(file.filename)
@@ -1661,19 +1670,26 @@ def pdf_to_jpg_route():
         base  = os.path.splitext(safe_name)[0]
 
         if total_pages == 1:
-            # ── Single page → return JPEG directly ────────────────────────
+            # ── Single page → return image directly ───────────────────────
             page = doc.load_page(0)
             pix  = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
             try:
-                jpg_bytes = pix.tobytes("jpeg", jpg_quality=92)
+                if fmt == "jpg":
+                    img_bytes = pix.tobytes("jpeg", jpg_quality=92)
+                elif fmt == "png":
+                    img_bytes = pix.tobytes("png")
+                elif fmt == "webp":
+                    img_bytes = pix.tobytes("webp", jpg_quality=92)
+                else:
+                    img_bytes = pix.tobytes("jpeg", jpg_quality=92)
             except Exception:
-                jpg_bytes = pix.tobytes("png")
+                img_bytes = pix.tobytes("png")
             del pix
             doc.close()
 
-            out_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_{base}_page_1.jpg")
+            out_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_{base}_page_1{IMG_EXT}")
             with open(out_path, "wb") as fh:
-                fh.write(jpg_bytes)
+                fh.write(img_bytes)
             out_paths.append(out_path)
 
             ConversionCounter.increment(fingerprint, request)
@@ -1690,8 +1706,8 @@ def pdf_to_jpg_route():
             return send_file(
                 out_path,
                 as_attachment=True,
-                download_name=f"{base}_page_1.jpg",
-                mimetype="image/jpeg",
+                download_name=f"{base}_page_1{IMG_EXT}",
+                mimetype=IMG_MIME,
             )
 
         else:
@@ -1702,16 +1718,24 @@ def pdf_to_jpg_route():
                     page = doc.load_page(i)
                     pix  = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
                     try:
-                        jpg_bytes = pix.tobytes("jpeg", jpg_quality=92)
+                        if fmt == "jpg":
+                            img_bytes = pix.tobytes("jpeg", jpg_quality=92)
+                        elif fmt == "png":
+                            img_bytes = pix.tobytes("png")
+                        elif fmt == "webp":
+                            img_bytes = pix.tobytes("webp", jpg_quality=92)
+                        else:
+                            img_bytes = pix.tobytes("jpeg", jpg_quality=92)
                     except Exception:
-                        jpg_bytes = pix.tobytes("png")
+                        img_bytes = pix.tobytes("png")
                     del pix
-                    fname_in_zip = f"{base}_page_{i + 1}.jpg"
-                    zf.writestr(fname_in_zip, jpg_bytes)
+                    fname_in_zip = f"{base}_page_{i + 1}{IMG_EXT}"
+                    zf.writestr(fname_in_zip, img_bytes)
             doc.close()
 
             zip_buf.seek(0)
-            zip_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_{base}_images.zip")
+            zip_name = f"pages_{fmt}.zip"
+            zip_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_{base}_{zip_name}")
             with open(zip_path, "wb") as fh:
                 fh.write(zip_buf.read())
             out_paths.append(zip_path)
@@ -1730,7 +1754,7 @@ def pdf_to_jpg_route():
             return send_file(
                 zip_path,
                 as_attachment=True,
-                download_name=f"{base}_images.zip",
+                download_name=f"{base}_{zip_name}",
                 mimetype="application/zip",
             )
 
