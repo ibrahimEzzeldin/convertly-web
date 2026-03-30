@@ -12,6 +12,9 @@ import jwt
 import time
 import hashlib
 import hmac
+import sqlite3
+import json
+import threading
 from functools import wraps
 from datetime import datetime, timedelta
 from typing import Dict, Tuple, Optional
@@ -22,45 +25,69 @@ import re
 logger = logging.getLogger(__name__)
 
 # ─── SERVER-SIDE STATE STORE ───────────────────────────────────────────────
-# In production, use Redis for distributed sessions. For now, use in-memory
-# with proper expiration. In production: pip install redis
+_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "quota.db")
+
 class SessionStore:
-    """In-memory session store with expiration. (Replace with Redis in prod)"""
-    def __init__(self):
-        self._data: Dict[str, Dict] = {}
-        self._expiry: Dict[str, float] = {}
-    
+    """SQLite-backed session store with expiration. Survives server restarts."""
+
+    def __init__(self, db_path: str = _DB_PATH):
+        self._db_path = db_path
+        self._lock = threading.RLock()  # reentrant so get() can call delete()
+        self._init_db()
+
+    def _conn(self):
+        return sqlite3.connect(self._db_path)
+
+    def _init_db(self):
+        with self._lock:
+            with self._conn() as c:
+                c.execute("""
+                    CREATE TABLE IF NOT EXISTS store (
+                        key        TEXT PRIMARY KEY,
+                        data       TEXT NOT NULL,
+                        expires_at REAL NOT NULL
+                    )
+                """)
+
     def set(self, key: str, data: dict, ttl_hours: int = 24):
-        """Store data with TTL in hours."""
-        self._data[key] = data
-        self._expiry[key] = time.time() + (ttl_hours * 3600)
-        self._cleanup()
-    
+        expires_at = time.time() + ttl_hours * 3600
+        with self._lock:
+            with self._conn() as c:
+                c.execute(
+                    "INSERT OR REPLACE INTO store (key, data, expires_at) VALUES (?,?,?)",
+                    (key, json.dumps(data), expires_at),
+                )
+                # Prune expired rows on every write
+                c.execute("DELETE FROM store WHERE expires_at < ?", (time.time(),))
+
     def get(self, key: str) -> Optional[dict]:
-        """Retrieve data if not expired."""
-        if key in self._expiry and time.time() > self._expiry[key]:
-            self._data.pop(key, None)
-            self._expiry.pop(key, None)
+        with self._lock:
+            with self._conn() as c:
+                row = c.execute(
+                    "SELECT data, expires_at FROM store WHERE key=?", (key,)
+                ).fetchone()
+        if row is None:
             return None
-        return self._data.get(key)
-    
+        data_json, expires_at = row
+        if time.time() > expires_at:
+            self.delete(key)
+            return None
+        return json.loads(data_json)
+
     def delete(self, key: str):
-        """Delete data."""
-        self._data.pop(key, None)
-        self._expiry.pop(key, None)
-    
+        with self._lock:
+            with self._conn() as c:
+                c.execute("DELETE FROM store WHERE key=?", (key,))
+
     def _cleanup(self):
-        """Remove expired entries."""
-        now = time.time()
-        expired = [k for k, exp_time in self._expiry.items() if now > exp_time]
-        for k in expired:
-            self._data.pop(k, None)
-            self._expiry.pop(k, None)
-    
+        with self._lock:
+            with self._conn() as c:
+                c.execute("DELETE FROM store WHERE expires_at < ?", (time.time(),))
+
     def clear_all(self):
-        """Clear all data (used for testing)."""
-        self._data.clear()
-        self._expiry.clear()
+        with self._lock:
+            with self._conn() as c:
+                c.execute("DELETE FROM store")
 
 # Global store instance
 _session_store = SessionStore()
