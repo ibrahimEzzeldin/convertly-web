@@ -3610,6 +3610,57 @@ def privacy():
     return render_template("privacy.html")
 
 
+@app.route("/support", methods=["GET", "POST"])
+def support():
+    """Support / feedback page."""
+    if request.method == "GET":
+        return render_template("support.html", sent=False, error=None)
+
+    subject_type = request.form.get("subject_type", "").strip()
+    message      = request.form.get("message", "").strip()
+    user_email   = request.form.get("user_email", "").strip()
+
+    if not subject_type or not message:
+        return render_template("support.html", sent=False,
+                               error="Please fill in all required fields.")
+
+    # ── Send email via Gmail SMTP ──────────────────────────────────────────
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    mail_user = os.getenv("MAIL_USERNAME", "")
+    mail_pass = os.getenv("MAIL_PASSWORD", "")
+    to_addr   = os.getenv("SUPPORT_EMAIL", "ibrahimezzeldinmirghani@gmail.com")
+
+    body = f"Type: {subject_type}\n"
+    if user_email:
+        body += f"Reply-to: {user_email}\n"
+    body += f"\n{message}"
+
+    if mail_user and mail_pass:
+        try:
+            msg = MIMEMultipart()
+            msg["From"]    = mail_user
+            msg["To"]      = to_addr
+            msg["Subject"] = f"[Convertly] {subject_type}"
+            if user_email:
+                msg["Reply-To"] = user_email
+            msg.attach(MIMEText(body, "plain"))
+
+            with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+                smtp.starttls()
+                smtp.login(mail_user, mail_pass)
+                smtp.sendmail(mail_user, to_addr, msg.as_string())
+        except Exception as exc:
+            app.logger.error("Support email failed: %s", exc)
+            # Still show thank-you — don't expose internals to user
+    else:
+        app.logger.info("Support message (no SMTP configured): %s", body)
+
+    return render_template("support.html", sent=True, error=None)
+
+
 # ── Cache headers for static files ────────────────────────────────────────
 
 @app.after_request
