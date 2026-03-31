@@ -3676,8 +3676,14 @@ def support():
                 data=token_data,
                 method="POST",
             )
-            with urllib.request.urlopen(token_req, timeout=15) as r:
-                access_token = _json.loads(r.read())["access_token"]
+            try:
+                with urllib.request.urlopen(token_req, timeout=15) as r:
+                    token_resp = _json.loads(r.read())
+                    access_token = token_resp["access_token"]
+                    app.logger.info("Gmail token obtained OK")
+            except urllib.error.HTTPError as e:
+                app.logger.error("Gmail token refresh failed %s: %s", e.code, e.read().decode())
+                return
 
             # 2. Build the email
             body = f"Topic: {subject_type}\n"
@@ -3704,8 +3710,11 @@ def support():
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(send_req, timeout=15) as r:
-                app.logger.info("Gmail API sent: %s", r.status)
+            try:
+                with urllib.request.urlopen(send_req, timeout=15) as r:
+                    app.logger.info("Gmail API sent: %s", r.status)
+            except urllib.error.HTTPError as e:
+                app.logger.error("Gmail API send failed %s: %s", e.code, e.read().decode())
 
         except Exception as exc:
             app.logger.error("Gmail API send failed: %s", exc)
