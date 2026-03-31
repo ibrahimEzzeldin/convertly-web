@@ -3625,8 +3625,7 @@ def support():
                                error="Please fill in all required fields.")
 
     # ── Save message to SQLite ─────────────────────────────────────────────
-    import sqlite3 as _sqlite3
-    import tempfile as _tempfile
+    import sqlite3 as _sqlite3, tempfile as _tempfile
 
     _db_path = os.getenv("QUOTA_DB_PATH", os.path.join(_tempfile.gettempdir(), "quota.db"))
     try:
@@ -3648,6 +3647,70 @@ def support():
         app.logger.info("Support message saved to DB.")
     except Exception as exc:
         app.logger.error("Could not save support message: %s", exc)
+
+    # ── Send email via Gmail API (HTTPS, works on Render) ──────────────────
+    def _send_gmail():
+        try:
+            import urllib.request, urllib.parse, json as _json
+            import base64 as _b64
+            from email.mime.text import MIMEText
+
+            client_id     = os.getenv("GMAIL_CLIENT_ID", "")
+            client_secret = os.getenv("GMAIL_CLIENT_SECRET", "")
+            refresh_token = os.getenv("GMAIL_REFRESH_TOKEN", "")
+            sender        = os.getenv("GMAIL_SENDER", "")
+            to_addr       = os.getenv("SUPPORT_EMAIL", "ibrahimezzeldinmirghani@gmail.com")
+
+            if not all([client_id, client_secret, refresh_token, sender]):
+                return
+
+            # 1. Get a fresh access token
+            token_data = urllib.parse.urlencode({
+                "client_id":     client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "grant_type":    "refresh_token",
+            }).encode()
+            token_req = urllib.request.Request(
+                "https://oauth2.googleapis.com/token",
+                data=token_data,
+                method="POST",
+            )
+            with urllib.request.urlopen(token_req, timeout=15) as r:
+                access_token = _json.loads(r.read())["access_token"]
+
+            # 2. Build the email
+            body = f"Topic: {subject_type}\n"
+            if user_email:
+                body += f"Reply-to: {user_email}\n"
+            body += f"\n{message}"
+
+            msg = MIMEText(body, "plain")
+            msg["From"]    = sender
+            msg["To"]      = to_addr
+            msg["Subject"] = f"[Convertly Support] {subject_type}"
+            if user_email:
+                msg["Reply-To"] = user_email
+
+            raw = _b64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+            # 3. Send via Gmail API
+            send_req = urllib.request.Request(
+                "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+                data=_json.dumps({"raw": raw}).encode(),
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type":  "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(send_req, timeout=15) as r:
+                app.logger.info("Gmail API sent: %s", r.status)
+
+        except Exception as exc:
+            app.logger.error("Gmail API send failed: %s", exc)
+
+    threading.Thread(target=_send_gmail, daemon=True).start()
 
     return render_template("support.html", sent=True, error=None)
 
