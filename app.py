@@ -3624,8 +3624,8 @@ def support():
         return render_template("support.html", sent=False,
                                error="Please fill in all required fields.")
 
-    # ── Send email via Gmail SMTP ──────────────────────────────────────────
-    import smtplib
+    # ── Send email via Gmail SMTP (background thread to avoid worker timeout)
+    import smtplib, threading
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
 
@@ -3639,22 +3639,23 @@ def support():
     body += f"\n{message}"
 
     if mail_user and mail_pass:
-        try:
-            msg = MIMEMultipart()
-            msg["From"]    = mail_user
-            msg["To"]      = to_addr
-            msg["Subject"] = f"[Convertly] {subject_type}"
-            if user_email:
-                msg["Reply-To"] = user_email
-            msg.attach(MIMEText(body, "plain"))
+        def _send():
+            try:
+                msg = MIMEMultipart()
+                msg["From"]    = mail_user
+                msg["To"]      = to_addr
+                msg["Subject"] = f"[Convertly] {subject_type}"
+                if user_email:
+                    msg["Reply-To"] = user_email
+                msg.attach(MIMEText(body, "plain"))
 
-            with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
-                smtp.starttls()
-                smtp.login(mail_user, mail_pass)
-                smtp.sendmail(mail_user, to_addr, msg.as_string())
-        except Exception as exc:
-            app.logger.error("Support email failed: %s", exc)
-            # Still show thank-you — don't expose internals to user
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
+                    smtp.login(mail_user, mail_pass)
+                    smtp.sendmail(mail_user, to_addr, msg.as_string())
+            except BaseException as exc:
+                app.logger.error("Support email failed: %s", exc)
+
+        threading.Thread(target=_send, daemon=True).start()
     else:
         app.logger.info("Support message (no SMTP configured): %s", body)
 
