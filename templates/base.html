@@ -506,7 +506,7 @@
 
 <script nonce="{{ csp_nonce }}">
 /* ── Quota display ──────────────────────────────────────────────── */
-(function loadQuota() {
+function loadQuota() {
   fetch('/status', { credentials: 'same-origin' })
     .then(r => r.json())
     .then(d => {
@@ -514,13 +514,19 @@
       const total = d.conversions_budget ?? 3;
       document.getElementById('q-used').textContent  = used;
       document.getElementById('q-total').textContent = total;
+      const pill = document.getElementById('quota-pill');
+      const dot  = document.getElementById('quota-dot');
       if (!d.paid && used >= total) {
-        document.getElementById('quota-pill').classList.add('exhausted');
-        document.getElementById('quota-dot').style.background = 'var(--danger)';
+        pill.classList.add('exhausted');
+        dot.style.background = 'var(--danger)';
+      } else {
+        pill.classList.remove('exhausted');
+        dot.style.background = '';
       }
     })
     .catch(() => {});
-})();
+}
+loadQuota();
 
 /* ── Paywall ────────────────────────────────────────────────────── */
 function openPw()  { document.getElementById('paywall').classList.add('open'); }

@@ -1802,6 +1802,7 @@ function handleSubmit(e) {
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       addToHistory(fname, url, getToolLabel(selectedTool));
       showToast('Done! Downloading…');
+      if (typeof loadQuota === 'function') loadQuota();
     } else {
       var reader = new FileReader();
       reader.onload = function() {
@@ -2386,6 +2387,7 @@ function _confirmEditChanges() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       addToHistory(fname, url, getToolLabel(selectedTool));
       showToast('Done! Downloading…');
+      if (typeof loadQuota === 'function') loadQuota();
     } else {
       var reader = new FileReader();
       reader.onload = function() {
@@ -2437,6 +2439,7 @@ function _confirmPlacement() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       addToHistory(fname, url, getToolLabel(selectedTool));
       showToast('Done! Downloading…');
+      if (typeof loadQuota === 'function') loadQuota();
     } else {
       var reader = new FileReader();
       reader.onload = function() {
