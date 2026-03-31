@@ -3656,11 +3656,25 @@ def support():
 
 @app.route("/admin/messages")
 def admin_messages():
-    import sqlite3 as _sqlite3, tempfile as _tempfile, hmac as _hmac
-    password = request.args.get("pw", "")
-    admin_pw = os.getenv("ADMIN_PASSWORD", "")
-    if not admin_pw or not _hmac.compare_digest(password, admin_pw):
-        return "Unauthorized", 401
+    import sqlite3 as _sqlite3, tempfile as _tempfile, hmac as _hmac, base64 as _b64
+    admin_user = os.getenv("ADMIN_USERNAME", "admin")
+    admin_pw   = os.getenv("ADMIN_PASSWORD", "")
+
+    # Require Basic Auth — credentials in header, never in URL
+    auth = request.headers.get("Authorization", "")
+    authed = False
+    if admin_pw and auth.startswith("Basic "):
+        try:
+            decoded = _b64.b64decode(auth[6:]).decode("utf-8")
+            req_user, req_pass = decoded.split(":", 1)
+            authed = (
+                _hmac.compare_digest(req_user, admin_user) and
+                _hmac.compare_digest(req_pass, admin_pw)
+            )
+        except Exception:
+            pass
+    if not authed:
+        return ("Unauthorized", 401, {"WWW-Authenticate": 'Basic realm="Convertly Admin"'})
 
     _db_path = os.getenv("QUOTA_DB_PATH", os.path.join(_tempfile.gettempdir(), "quota.db"))
     rows = []
