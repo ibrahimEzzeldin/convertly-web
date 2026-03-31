@@ -3421,6 +3421,22 @@ def pdf_text_extract():
     })
 
 
+# ── RTL/Arabic text helper ────────────────────────────────────────────────
+
+def _prepare_text_for_pdf(text):
+    """Reshape and apply BiDi algorithm to Arabic/RTL text.
+    Returns (display_text, is_rtl)."""
+    import re
+    if re.search(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]', text):
+        try:
+            import arabic_reshaper
+            from bidi.algorithm import get_display
+            return get_display(arabic_reshaper.reshape(text)), True
+        except Exception:
+            pass
+    return text, False
+
+
 # ── Edit PDF ───────────────────────────────────────────────────────────────
 
 @app.route("/edit-pdf", methods=["POST"])
@@ -3536,16 +3552,24 @@ def edit_pdf_route():
                     tw = fitz.TextWriter(page.rect)
                     for ch in chs:
                         font_size = max(8, min(72, int(ch.get("font_size", 12))))
+                        new_text = ch.get("text") or ch.get("new_text", "")
+                        if not new_text:
+                            continue
+                        display_text, is_rtl = _prepare_text_for_pdf(new_text)
+                        text_w = helv_font.text_length(display_text, fontsize=font_size)
                         if ch["action"] == "add":
                             lx = float(ch["x_pct"]) / 100 * pw
                             ly = float(ch["y_pct"]) / 100 * ph + font_size
+                            if is_rtl:
+                                lx = lx - text_w  # right-align from click point
                         else:  # replace
-                            lx = float(ch["x0_pct"]) / 100 * pw
                             ly = float(ch["y1_pct"]) / 100 * ph
-                        new_text = ch.get("text") or ch.get("new_text", "")
-                        if new_text:
-                            tw.append(fitz.Point(lx, ly), new_text,
-                                      font=helv_font, fontsize=font_size)
+                            if is_rtl:
+                                lx = float(ch["x1_pct"]) / 100 * pw - text_w
+                            else:
+                                lx = float(ch["x0_pct"]) / 100 * pw
+                        tw.append(fitz.Point(lx, ly), display_text,
+                                  font=helv_font, fontsize=font_size)
                     tw.write_text(page, color=(rc, gc, bc))
 
                 edited_count += 1
@@ -3665,20 +3689,24 @@ def edit_pdf_route():
             tw = fitz.TextWriter(page.rect)
 
             for j, line in enumerate(lines):
+                if not line:
+                    continue
+                display_line, is_rtl = _prepare_text_for_pdf(line)
+                line_w = helv_font.text_length(display_line, fontsize=font_size)
                 if use_coords:
                     lx = (x_pct / 100.0) * pw
                     ly = (y_pct / 100.0) * ph + font_size + j * line_h
+                    if is_rtl:
+                        lx = lx - line_w
                 else:
-                    lw = line_widths[j]
                     if   col == "l": lx = margin
-                    elif col == "r": lx = pw - lw - margin
-                    else:            lx = (pw - lw) / 2
+                    elif col == "r": lx = pw - line_w - margin
+                    else:            lx = (pw - line_w) / 2
                     if row == "t":
                         ly = margin + font_size + j * line_h
                     else:
                         ly = ph - margin - (len(lines) - 1 - j) * line_h
-                if line:
-                    tw.append(fitz.Point(lx, ly), line, font=helv_font, fontsize=font_size)
+                tw.append(fitz.Point(lx, ly), display_line, font=helv_font, fontsize=font_size)
 
             tw.write_text(page, color=(rc, gc, bc))
             edited_count += 1
