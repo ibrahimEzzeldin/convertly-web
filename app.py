@@ -3332,11 +3332,103 @@ def pdf_page_preview():
     })
 
 
+# ── PDF Text Extract (for edit-pdf span overlay) ──────────────────────────
+
+@app.route("/pdf-text-extract", methods=["POST"])
+@limiter.limit("30 per minute")
+def pdf_text_extract():
+    """Extract text spans with bounding boxes from a single PDF page.
+    Returns coordinates as percentages of page dimensions.
+    Does NOT consume a quota slot."""
+    file = request.files.get("file")
+    is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    header = file.read(8)
+    file.seek(0)
+    if not header.startswith(b"%PDF"):
+        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
+
+    try:
+        page_num = max(0, int(request.form.get("page", "0")))
+    except (ValueError, TypeError):
+        page_num = 0
+
+    uid      = str(uuid.uuid4())
+    src_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_textextract.pdf")
+    file.save(src_path)
+
+    try:
+        import fitz
+
+        doc         = fitz.open(src_path)
+        total_pages = doc.page_count
+        if total_pages == 0:
+            doc.close()
+            return jsonify({"error": "PDF has no pages."}), 400
+
+        page_num = min(page_num, total_pages - 1)
+        page     = doc.load_page(page_num)
+        page_w   = page.rect.width
+        page_h   = page.rect.height
+
+        raw   = page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE)
+        spans = []
+        for block in raw.get("blocks", []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    text = span.get("text", "").strip()
+                    if not text:
+                        continue
+                    bx0, by0, bx1, by1 = span["bbox"]
+                    if (bx1 - bx0) < 1 or (by1 - by0) < 1:
+                        continue
+                    spans.append({
+                        "text":      text,
+                        "x0_pct":    round(bx0 / page_w * 100, 3),
+                        "y0_pct":    round(by0 / page_h * 100, 3),
+                        "x1_pct":    round(bx1 / page_w * 100, 3),
+                        "y1_pct":    round(by1 / page_h * 100, 3),
+                        "font_size": round(span.get("size", 12), 1),
+                        "color_hex": "%06x" % (span.get("color", 0) & 0xFFFFFF),
+                    })
+                    if len(spans) >= 500:
+                        break
+                if len(spans) >= 500:
+                    break
+            if len(spans) >= 500:
+                break
+        doc.close()
+
+    except Exception as exc:
+        logger.error("PDF text extract error: %s", exc, exc_info=True)
+        return jsonify({"error": "Failed to extract text."}), 500
+    finally:
+        if os.path.exists(src_path):
+            try:
+                os.remove(src_path)
+            except Exception:
+                pass
+
+    return jsonify({
+        "page":       page_num,
+        "page_width": page_w,
+        "page_height": page_h,
+        "spans":      spans,
+    })
+
+
 # ── Edit PDF ───────────────────────────────────────────────────────────────
 
 @app.route("/edit-pdf", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "10 per minute"))
 def edit_pdf_route():
+    import json as _json
+    from collections import defaultdict
+
     file = request.files.get("file")
     is_valid, error_msg = validate_file(file, [".pdf"], app.config["MAX_FILE_SIZE"])
     if not is_valid:
@@ -3345,12 +3437,6 @@ def edit_pdf_route():
     header = file.read(8); file.seek(0)
     if not header.startswith(b"%PDF"):
         return jsonify({"error": "File does not appear to be a valid PDF."}), 400
-
-    text = request.form.get("text", "").strip()
-    if not text:
-        return jsonify({"error": "No text provided."}), 400
-    if len(text) > 500:
-        return jsonify({"error": "Text is too long (max 500 characters)."}), 400
 
     fingerprint = get_client_fingerprint(request)
     _cc_used, _cc_budget, _, _cc_pro = ConversionCounter.get_status(fingerprint)
@@ -3362,11 +3448,154 @@ def edit_pdf_route():
             "conversions_budget": _cc_budget,
         }), 402
 
+    # ── New multi-change path ──────────────────────────────────────────────
+    changes_raw = request.form.get("changes", "")
+    if changes_raw:
+        try:
+            changes = _json.loads(changes_raw)
+            if not isinstance(changes, list) or len(changes) == 0:
+                return jsonify({"error": "No changes provided."}), 400
+            if len(changes) > 50:
+                return jsonify({"error": "Too many changes (max 50)."}), 400
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid changes data."}), 400
+
+        # Validate each change
+        valid_actions = {"add", "replace", "delete"}
+        for ch in changes:
+            if ch.get("action") not in valid_actions:
+                return jsonify({"error": "Invalid action in changes."}), 400
+            for key in ("x0_pct", "y0_pct", "x1_pct", "y1_pct"):
+                if ch.get("action") in ("replace", "delete") and key in ch:
+                    v = float(ch[key])
+                    if not (0.0 <= v <= 100.0):
+                        return jsonify({"error": f"Out-of-range value for {key}."}), 400
+            for text_key in ("text", "new_text"):
+                if text_key in ch and len(ch[text_key]) > 500:
+                    return jsonify({"error": "Text too long (max 500 characters)."}), 400
+
+        uid       = str(uuid.uuid4())
+        safe_name = os.path.basename(file.filename)
+        src_path  = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_{safe_name}")
+        out_path  = os.path.join(app.config["UPLOAD_FOLDER"], f"{uid}_edited.pdf")
+        file.save(src_path)
+
+        edited_count = 0
+        total_pages  = 0
+        try:
+            import fitz
+
+            doc = fitz.open(src_path)
+            total_pages = doc.page_count
+            if total_pages == 0:
+                doc.close()
+                return jsonify({"error": "PDF has no pages."}), 400
+
+            # Group changes by page
+            page_changes = defaultdict(list)
+            for ch in changes:
+                pg = max(0, min(int(ch.get("page", 0)), total_pages - 1))
+                page_changes[pg].append(ch)
+
+            helv_font = fitz.Font("helv")
+
+            for page_idx, ch_list in page_changes.items():
+                page   = doc.load_page(page_idx)
+                pw, ph = page.rect.width, page.rect.height
+
+                # Step 1: add redact annotations for delete/replace
+                needs_redact = False
+                for ch in ch_list:
+                    if ch["action"] in ("delete", "replace"):
+                        x0 = float(ch["x0_pct"]) / 100 * pw
+                        y0 = float(ch["y0_pct"]) / 100 * ph
+                        x1 = float(ch["x1_pct"]) / 100 * pw
+                        y1 = float(ch["y1_pct"]) / 100 * ph
+                        page.add_redact_annot(fitz.Rect(x0, y0, x1, y1), fill=(1, 1, 1))
+                        needs_redact = True
+
+                # Step 2: apply redactions once per page
+                if needs_redact:
+                    page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+
+                # Step 3: insert new text for add/replace
+                # Group by color to use one TextWriter per color
+                color_groups = defaultdict(list)
+                for ch in ch_list:
+                    if ch["action"] in ("add", "replace"):
+                        color_groups[ch.get("color", "000000")].append(ch)
+
+                for color_hex, chs in color_groups.items():
+                    raw_color = color_hex.lstrip("#")
+                    try:
+                        rc = int(raw_color[0:2], 16) / 255.0
+                        gc = int(raw_color[2:4], 16) / 255.0
+                        bc = int(raw_color[4:6], 16) / 255.0
+                    except Exception:
+                        rc = gc = bc = 0.0
+                    tw = fitz.TextWriter(page.rect)
+                    for ch in chs:
+                        font_size = max(8, min(72, int(ch.get("font_size", 12))))
+                        if ch["action"] == "add":
+                            lx = float(ch["x_pct"]) / 100 * pw
+                            ly = float(ch["y_pct"]) / 100 * ph + font_size
+                        else:  # replace
+                            lx = float(ch["x0_pct"]) / 100 * pw
+                            ly = float(ch["y1_pct"]) / 100 * ph
+                        new_text = ch.get("text") or ch.get("new_text", "")
+                        if new_text:
+                            tw.append(fitz.Point(lx, ly), new_text,
+                                      font=helv_font, fontsize=font_size)
+                    tw.write_text(page, color=(rc, gc, bc))
+
+                edited_count += 1
+
+            doc.save(out_path, garbage=4, deflate=True)
+            doc.close()
+            logger.info("Edit PDF (multi-change): %d pages, %d changes, uid=%s",
+                        edited_count, len(changes), uid)
+
+        except Exception as exc:
+            logger.error("Edit PDF error: %s", exc, exc_info=True)
+            if os.path.exists(out_path):
+                try: os.remove(out_path)
+                except Exception: pass
+            return jsonify({"error": "Failed to edit PDF."}), 500
+        finally:
+            if os.path.exists(src_path):
+                try: os.remove(src_path)
+                except Exception: pass
+
+        if not os.path.exists(out_path):
+            return jsonify({"error": "Edit produced no output."}), 500
+
+        ConversionCounter.increment(fingerprint, request)
+        base_name = os.path.splitext(safe_name)[0]
+
+        @after_this_request
+        def _rm_edit_multi(response):
+            try:
+                if os.path.exists(out_path): os.remove(out_path)
+            except Exception: pass
+            return response
+
+        resp = send_file(out_path, as_attachment=True, download_name=f"{base_name}_edited.pdf")
+        resp.headers["X-Pages-Edited"] = str(edited_count)
+        resp.headers["X-Total-Pages"]  = str(total_pages)
+        resp.headers["Access-Control-Expose-Headers"] = "X-Pages-Edited, X-Total-Pages"
+        return resp
+
+    # ── Legacy single-text path (fallback) ────────────────────────────────
+    text = request.form.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "No text provided."}), 400
+    if len(text) > 500:
+        return jsonify({"error": "Text is too long (max 500 characters)."}), 400
+
     position = request.form.get("position", "tl")
     if position not in {"tl", "tc", "tr", "bl", "bc", "br"}:
         position = "tl"
 
-    # Coordinate-based placement (from visual preview click)
     try:
         x_pct = float(request.form.get("x_pct", ""))
         y_pct = float(request.form.get("y_pct", ""))
@@ -3425,24 +3654,18 @@ def edit_pdf_route():
         margin = max(font_size * 1.4, 14.0)
         lines  = text.split("\n")
         line_h = font_size * 1.4
-
-        row, col  = position[0], position[1]
-
+        row, col = position[0], position[1]
         helv_font = fitz.Font("helv")
-        # Pre-measure all line widths with a local font instance
         line_widths = [helv_font.text_length(ln, fontsize=font_size) if ln else 0.0
                        for ln in lines]
 
         for i in target_indices:
             page   = doc.load_page(i)
             pw, ph = page.rect.width, page.rect.height
-            # Use TextWriter to bypass CheckFont which has a PyMuPDF bug with
-            # non-sequential page access in some versions
             tw = fitz.TextWriter(page.rect)
 
             for j, line in enumerate(lines):
                 if use_coords:
-                    # Click-based placement: x_pct/y_pct are percentage of page dims
                     lx = (x_pct / 100.0) * pw
                     ly = (y_pct / 100.0) * ph + font_size + j * line_h
                 else:
@@ -3450,12 +3673,10 @@ def edit_pdf_route():
                     if   col == "l": lx = margin
                     elif col == "r": lx = pw - lw - margin
                     else:            lx = (pw - lw) / 2
-
                     if row == "t":
                         ly = margin + font_size + j * line_h
                     else:
                         ly = ph - margin - (len(lines) - 1 - j) * line_h
-
                 if line:
                     tw.append(fitz.Point(lx, ly), line, font=helv_font, fontsize=font_size)
 
@@ -3482,7 +3703,6 @@ def edit_pdf_route():
         return jsonify({"error": "Edit produced no output."}), 500
 
     ConversionCounter.increment(fingerprint, request)
-
     base_name = os.path.splitext(safe_name)[0]
 
     @after_this_request

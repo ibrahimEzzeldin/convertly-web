@@ -1158,27 +1158,9 @@
 
         <!-- Edit PDF -->
         <div class="opts-inner" id="opts-edit" style="display:none">
-          <div class="opt-field grow">
-            <label class="opt-label" for="edit-text">Text to add</label>
-            <input class="opt-input" type="text" name="text" id="edit-text" placeholder="Type your text…" maxlength="500">
-          </div>
-          <div class="opt-field">
-            <label class="opt-label" for="edit-pos">Position</label>
-            <div class="opt-select-wrap">
-              <select class="opt-select" name="position" id="edit-pos">
-                <option value="tl" selected>Top left</option>
-                <option value="tc">Top center</option>
-                <option value="tr">Top right</option>
-                <option value="bl">Bottom left</option>
-                <option value="bc">Bottom center</option>
-                <option value="br">Bottom right</option>
-              </select>
-            </div>
-          </div>
-          <div class="opt-field" style="min-width:90px">
-            <label class="opt-label" for="edit-page">Page</label>
-            <input class="opt-input" type="number" name="page_number" id="edit-page" value="1" min="1">
-          </div>
+          <p style="font-size:12px;color:var(--muted);margin:4px 0">
+            Click <strong style="color:var(--text-2)">Edit PDF</strong> to open the visual editor — click existing text to edit or delete it, or click blank space to add new text.
+          </p>
         </div>
 
         <!-- Protect PDF -->
@@ -1370,8 +1352,31 @@
         <img id="place-preview-img" style="width:100%;display:block;border-radius:8px;border:1px solid var(--border)" alt="PDF page">
         <!-- Signature marker dot (sign-pdf) -->
         <div id="place-marker" style="display:none;position:absolute;width:22px;height:22px;border:3px solid var(--accent);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;box-shadow:0 0 0 3px rgba(163,230,53,.25)"></div>
-        <!-- Edit text line indicator (edit-pdf) -->
+        <!-- Edit text line indicator (edit-pdf legacy) -->
         <div id="place-edit-line" style="display:none;position:absolute;left:4%;right:4%;height:3px;background:var(--accent);pointer-events:none;border-radius:2px;box-shadow:0 0 8px rgba(163,230,53,.5);transform:translateY(-50%)"></div>
+        <!-- Text span overlay (edit-pdf new) -->
+        <div id="edit-span-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></div>
+        <!-- Span action popover -->
+        <div id="edit-span-popover" style="display:none;position:absolute;z-index:20;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:5px;box-shadow:0 4px 20px rgba(0,0,0,.5);min-width:130px">
+          <button id="popover-edit-btn" style="display:block;width:100%;text-align:left;padding:7px 10px;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:13px;border-radius:4px;white-space:nowrap">✏️ Edit text</button>
+          <button id="popover-delete-btn" style="display:block;width:100%;text-align:left;padding:7px 10px;background:none;border:none;color:#f87171;cursor:pointer;font-size:13px;border-radius:4px;white-space:nowrap">🗑️ Delete text</button>
+        </div>
+        <!-- Inline replace input -->
+        <div id="edit-inline-input" style="display:none;position:absolute;z-index:21;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:8px;box-shadow:0 4px 20px rgba(0,0,0,.5);min-width:210px">
+          <input id="edit-inline-text" type="text" maxlength="500" placeholder="Replacement text…" style="width:100%;padding:6px 8px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box;margin-bottom:6px;outline:none">
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            <button id="edit-inline-cancel" style="padding:4px 10px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:4px;color:var(--text-2);cursor:pointer;font-size:12px">Cancel</button>
+            <button id="edit-inline-confirm" style="padding:4px 12px;background:var(--accent);border:none;border-radius:4px;color:#000;font-weight:600;cursor:pointer;font-size:12px">Replace</button>
+          </div>
+        </div>
+        <!-- Add text input (blank space click) -->
+        <div id="edit-add-input" style="display:none;position:absolute;z-index:21;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:8px;box-shadow:0 4px 20px rgba(0,0,0,.5);min-width:210px">
+          <input id="edit-add-text" type="text" maxlength="500" placeholder="Type new text…" style="width:100%;padding:6px 8px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:4px;color:var(--text);font-size:13px;box-sizing:border-box;margin-bottom:6px;outline:none">
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            <button id="edit-add-cancel" style="padding:4px 10px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:4px;color:var(--text-2);cursor:pointer;font-size:12px">Cancel</button>
+            <button id="edit-add-confirm" style="padding:4px 12px;background:var(--accent);border:none;border-radius:4px;color:#000;font-weight:600;cursor:pointer;font-size:12px">Add Text</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1384,7 +1389,8 @@
 
     <div id="place-loading" style="display:none;text-align:center;padding:20px;font-size:13px;color:var(--muted)">Loading page preview…</div>
 
-    <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;flex-shrink:0">
+    <div style="margin-top:14px;display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-shrink:0">
+      <span id="edit-change-count" style="display:none;font-size:12px;color:var(--muted);margin-right:auto"></span>
       <button type="button" id="place-cancel-btn" style="padding:9px 18px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:var(--radius-sm);color:var(--text-2);cursor:pointer;font-size:13px">Cancel</button>
       <button type="button" id="place-confirm-btn" disabled style="padding:9px 22px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:#000;font-weight:600;cursor:pointer;font-size:13px;opacity:.5">Click a spot first</button>
     </div>
@@ -1694,16 +1700,6 @@ function handleSubmit(e) {
     if (!pw) {
       e.preventDefault();
       showToast('Please enter a password for the PDF.', true);
-      return;
-    }
-  }
-
-  /* Edit: require text */
-  if (selectedTool === 'edit-pdf') {
-    var txt = document.getElementById('edit-text').value.trim();
-    if (!txt) {
-      e.preventDefault();
-      showToast('Please enter the text you want to add.', true);
       return;
     }
   }
@@ -2082,19 +2078,147 @@ function _doTranslate(transPages) {
 /* ── Place-on-Page modal (Edit PDF & Sign PDF) ────────── */
 var _placeState = { tool: null, pageNum: 0, totalPages: 1, xPct: null, yPct: null, formData: null };
 
+/* ── Edit PDF state ───────────────────────────────────────────────────── */
+var _editChanges = [];
+var _editState   = { pageNum: 0, totalPages: 1, pageWidth: 0, pageHeight: 0, spans: [], activeSpanEl: null };
+var _pendingAddCoords = null;
+
+function _updateChangeCount() {
+  var count = _editChanges.length;
+  var badge = document.getElementById('edit-change-count');
+  var btn   = document.getElementById('place-confirm-btn');
+  badge.textContent  = count > 0 ? count + (count === 1 ? ' change pending' : ' changes pending') : '';
+  badge.style.display = count > 0 ? '' : 'none';
+  btn.disabled       = count === 0;
+  btn.textContent    = count > 0 ? 'Apply ' + count + ' Change' + (count !== 1 ? 's' : '') : 'Make a change first';
+  btn.style.opacity  = count > 0 ? '1' : '.5';
+}
+
+function _closeAllEditPopups() {
+  document.getElementById('edit-span-popover').style.display    = 'none';
+  document.getElementById('edit-inline-input').style.display    = 'none';
+  document.getElementById('edit-add-input').style.display       = 'none';
+  _editState.activeSpanEl = null;
+  _pendingAddCoords       = null;
+}
+
+function _renderSpanOverlay(spans) {
+  var overlay = document.getElementById('edit-span-overlay');
+  overlay.innerHTML = '';
+  overlay.style.pointerEvents = 'none';
+
+  spans.forEach(function(sp, idx) {
+    var div = document.createElement('div');
+    div.className = 'edit-span-highlight';
+    div.style.cssText = [
+      'position:absolute',
+      'left:'   + sp.x0_pct + '%',
+      'top:'    + sp.y0_pct + '%',
+      'width:'  + (sp.x1_pct - sp.x0_pct) + '%',
+      'height:' + (sp.y1_pct - sp.y0_pct) + '%',
+      'background:rgba(74,222,128,0.12)',
+      'border:1px solid rgba(74,222,128,0.35)',
+      'border-radius:2px',
+      'cursor:pointer',
+      'pointer-events:auto',
+      'box-sizing:border-box',
+      'transition:background .12s',
+    ].join(';');
+    div.dataset.idx      = idx;
+    div.dataset.text     = sp.text;
+    div.dataset.x0       = sp.x0_pct;
+    div.dataset.y0       = sp.y0_pct;
+    div.dataset.x1       = sp.x1_pct;
+    div.dataset.y1       = sp.y1_pct;
+    div.dataset.fontSize = sp.font_size;
+    div.dataset.color    = sp.color_hex;
+
+    // Check if this span already has a staged change → dim it
+    var alreadyChanged = _editChanges.some(function(ch) {
+      return (ch.action === 'delete' || ch.action === 'replace') &&
+             Math.abs(ch.x0_pct - sp.x0_pct) < 0.5 && Math.abs(ch.y0_pct - sp.y0_pct) < 0.5;
+    });
+    if (alreadyChanged) {
+      div.style.opacity    = '0.35';
+      div.style.background = 'rgba(248,113,113,0.15)';
+      div.style.border     = '1px solid rgba(248,113,113,0.4)';
+    }
+
+    div.addEventListener('mouseenter', function() { if (parseFloat(div.style.opacity || 1) > 0.4) div.style.background = 'rgba(74,222,128,0.25)'; });
+    div.addEventListener('mouseleave', function() { if (parseFloat(div.style.opacity || 1) > 0.4) div.style.background = 'rgba(74,222,128,0.12)'; });
+    overlay.appendChild(div);
+  });
+  overlay.style.pointerEvents = 'auto';
+}
+
+function _positionPopup(el, refEl) {
+  var wrap = document.getElementById('place-preview-wrap');
+  var wRect = wrap.getBoundingClientRect();
+  var rRect = refEl.getBoundingClientRect();
+  var top  = rRect.bottom - wRect.top + 4;
+  var left = rRect.left   - wRect.left;
+  // Clamp right edge
+  var maxLeft = wrap.offsetWidth - el.offsetWidth - 4;
+  left = Math.max(4, Math.min(left, maxLeft));
+  // Flip above if too close to bottom
+  if (top + 90 > wrap.offsetHeight) top = rRect.top - wRect.top - 90;
+  el.style.top  = top  + 'px';
+  el.style.left = left + 'px';
+}
+
+function _loadEditPage(pageNum) {
+  _closeAllEditPopups();
+  document.getElementById('edit-span-overlay').innerHTML = '';
+  _loadPlacePage(pageNum);
+
+  var fi = document.getElementById('file-input');
+  if (!fi.files.length) return;
+  var fd2 = new FormData();
+  fd2.append('file',       fi.files[0]);
+  fd2.append('page',       pageNum);
+  fd2.append('csrf_token', document.querySelector('meta[name="csrf-token"]').content);
+
+  fetch('/pdf-text-extract', { method: 'POST', body: fd2, credentials: 'same-origin' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error) return;
+      _editState.spans     = d.spans || [];
+      _editState.pageWidth  = d.page_width;
+      _editState.pageHeight = d.page_height;
+      _renderSpanOverlay(_editState.spans);
+    })
+    .catch(function() {});
+}
+
 function _openPlaceModal(tool) {
   var form = document.getElementById('convert-form');
   var fd   = new FormData(form);
-  _placeState.tool      = tool;
-  _placeState.pageNum   = 0;
-  _placeState.xPct      = null;
-  _placeState.yPct      = null;
-  _placeState.formData  = fd;
+  _placeState.tool     = tool;
+  _placeState.pageNum  = 0;
+  _placeState.xPct     = null;
+  _placeState.yPct     = null;
+  _placeState.formData = fd;
 
-  var title = tool === 'sign-pdf' ? '✍ Click to Place Signature' : '✏️ Click to Place Text';
-  var hint  = tool === 'sign-pdf'
-    ? 'Click the exact spot on the page where you want your signature to appear.'
-    : 'Click the line on the page where you want to insert your text.';
+  if (tool === 'edit-pdf') {
+    // Reset edit state
+    _editChanges = [];
+    _editState.activeSpanEl = null;
+    _pendingAddCoords = null;
+    document.getElementById('edit-span-overlay').innerHTML = '';
+    _closeAllEditPopups();
+    _updateChangeCount();
+
+    document.getElementById('place-modal-title').textContent = '✏️ Edit PDF';
+    document.getElementById('place-modal-hint').textContent  = 'Click highlighted text to edit or delete it. Click blank space to add new text.';
+    document.getElementById('place-marker').style.display    = 'none';
+    document.getElementById('place-edit-line').style.display = 'none';
+    showOverlay(document.getElementById('place-overlay'));
+    _loadEditPage(0);
+    return;
+  }
+
+  var title = '✍ Click to Place Signature';
+  var hint  = 'Click the exact spot on the page where you want your signature to appear.';
   document.getElementById('place-modal-title').textContent = title;
   document.getElementById('place-modal-hint').textContent  = hint;
   document.getElementById('place-marker').style.display    = 'none';
@@ -2102,8 +2226,8 @@ function _openPlaceModal(tool) {
   document.getElementById('place-confirm-btn').disabled    = true;
   document.getElementById('place-confirm-btn').textContent = 'Click on the page first';
   document.getElementById('place-confirm-btn').style.opacity = '.5';
+  document.getElementById('edit-change-count').style.display = 'none';
   showOverlay(document.getElementById('place-overlay'));
-
   _loadPlacePage(0);
 }
 
@@ -2149,35 +2273,108 @@ function _loadPlacePage(pageNum) {
 
 function _onPlaceClick(e) {
   var img = document.getElementById('place-preview-img');
-  if (!img || e.target !== img) return;
-  var rect = img.getBoundingClientRect();
-  var xPct = ((e.clientX - rect.left) / rect.width)  * 100;
-  var yPct = ((e.clientY - rect.top)  / rect.height) * 100;
-  _placeState.xPct = xPct;
-  _placeState.yPct = yPct;
+  if (!img) return;
 
+  // Edit PDF: span click handled by overlay delegation; blank-space = image itself
   if (_placeState.tool === 'edit-pdf') {
-    /* Edit PDF: show a horizontal highlight line at the clicked row */
-    document.getElementById('place-marker').style.display = 'none';
-    var line = document.getElementById('place-edit-line');
-    line.style.top     = yPct + '%';
-    line.style.display = 'block';
-  } else {
-    /* Sign PDF: show a dot at the exact click point */
-    document.getElementById('place-edit-line').style.display = 'none';
-    var marker = document.getElementById('place-marker');
-    marker.style.left    = xPct + '%';
-    marker.style.top     = yPct + '%';
-    marker.style.display = 'block';
+    if (e.target === img) {
+      // Blank space → show add-text input
+      _closeAllEditPopups();
+      var rect = img.getBoundingClientRect();
+      var xPct = ((e.clientX - rect.left) / rect.width)  * 100;
+      var yPct = ((e.clientY - rect.top)  / rect.height) * 100;
+      _pendingAddCoords = { x_pct: xPct, y_pct: yPct };
+
+      var addEl = document.getElementById('edit-add-input');
+      var wrap  = document.getElementById('place-preview-wrap');
+      var wRect = wrap.getBoundingClientRect();
+      var top   = Math.min(e.clientY - wRect.top + 6, wrap.offsetHeight - 80);
+      var left  = Math.max(4, Math.min(e.clientX - wRect.left, wrap.offsetWidth - 220));
+      addEl.style.top  = top  + 'px';
+      addEl.style.left = left + 'px';
+      addEl.style.display = 'block';
+      document.getElementById('edit-add-text').value = '';
+      document.getElementById('edit-add-text').focus();
+    } else if (e.target.classList.contains('edit-span-highlight')) {
+      // Span click → show popover
+      _closeAllEditPopups();
+      _editState.activeSpanEl = e.target;
+      var popover = document.getElementById('edit-span-popover');
+      popover.style.display = 'block';
+      _positionPopup(popover, e.target);
+    }
+    return;
   }
 
+  // Sign PDF
+  if (e.target !== img) return;
+  var rect2 = img.getBoundingClientRect();
+  var xPct2 = ((e.clientX - rect2.left) / rect2.width)  * 100;
+  var yPct2 = ((e.clientY - rect2.top)  / rect2.height) * 100;
+  _placeState.xPct = xPct2;
+  _placeState.yPct = yPct2;
+  document.getElementById('place-edit-line').style.display = 'none';
+  var marker = document.getElementById('place-marker');
+  marker.style.left    = xPct2 + '%';
+  marker.style.top     = yPct2 + '%';
+  marker.style.display = 'block';
   var confirmBtn = document.getElementById('place-confirm-btn');
   confirmBtn.disabled    = false;
-  confirmBtn.textContent = _placeState.tool === 'edit-pdf' ? 'Insert Text Here' : 'Place Signature Here';
+  confirmBtn.textContent = 'Place Signature Here';
   confirmBtn.style.opacity = '1';
 }
 
+function _confirmEditChanges() {
+  if (_editChanges.length === 0) return;
+  hideOverlay(document.getElementById('place-overlay'));
+
+  var fi = document.getElementById('file-input');
+  var fd = new FormData();
+  fd.append('file',       fi.files[0]);
+  fd.append('changes',    JSON.stringify(_editChanges));
+  fd.append('csrf_token', document.querySelector('meta[name="csrf-token"]').content);
+
+  var btn = document.getElementById('convert-btn');
+  btn.disabled = true; btn.textContent = '⏳ Processing…'; btn.classList.remove('ready');
+  document.getElementById('loader').classList.add('visible');
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/edit-pdf');
+  xhr.responseType = 'blob';
+  xhr.onload = function() {
+    document.getElementById('loader').classList.remove('visible');
+    btn.disabled = false; btn.textContent = '⚡ ' + getToolLabel(selectedTool); btn.classList.add('ready');
+    if (xhr.status === 200) {
+      var cd    = xhr.getResponseHeader('Content-Disposition') || '';
+      var match = cd.match(/filename[^;=\n]*=["']?([^"'\n;]+)/);
+      var fname = match ? match[1].trim() : 'output.pdf';
+      var url   = URL.createObjectURL(xhr.response);
+      var a     = document.createElement('a'); a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      addToHistory(fname, url, getToolLabel(selectedTool));
+      showToast('Done! Downloading…');
+    } else {
+      var reader = new FileReader();
+      reader.onload = function() {
+        try {
+          var d = JSON.parse(reader.result);
+          if (d.error === 'quota_exceeded') openPw();
+          else showToast(d.error || 'Processing failed.', true);
+        } catch(ex) { showToast('Processing failed. Please try again.', true); }
+      };
+      reader.readAsText(xhr.response);
+    }
+  };
+  xhr.onerror = function() {
+    document.getElementById('loader').classList.remove('visible');
+    btn.disabled = false; btn.textContent = '⚡ ' + getToolLabel(selectedTool); btn.classList.add('ready');
+    showToast('Network error. Please try again.', true);
+  };
+  xhr.send(fd);
+}
+
 function _confirmPlacement() {
+  if (_placeState.tool === 'edit-pdf') { _confirmEditChanges(); return; }
   if (_placeState.xPct === null) return;
   hideOverlay(document.getElementById('place-overlay'));
 
@@ -2425,13 +2622,120 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('place-cancel-btn').addEventListener('click', function() { hideOverlay(placeOverlay); });
   document.getElementById('place-confirm-btn').addEventListener('click', _confirmPlacement);
   document.getElementById('place-prev-btn').addEventListener('click', function() {
-    if (_placeState.pageNum > 0) _loadPlacePage(_placeState.pageNum - 1);
+    var prev = _placeState.pageNum - 1;
+    if (prev < 0) return;
+    if (_placeState.tool === 'edit-pdf') _loadEditPage(prev);
+    else _loadPlacePage(prev);
   });
   document.getElementById('place-next-btn').addEventListener('click', function() {
-    if (_placeState.pageNum < _placeState.totalPages - 1) _loadPlacePage(_placeState.pageNum + 1);
+    var next = _placeState.pageNum + 1;
+    if (next >= _placeState.totalPages) return;
+    if (_placeState.tool === 'edit-pdf') _loadEditPage(next);
+    else _loadPlacePage(next);
   });
   document.getElementById('place-preview-wrap').addEventListener('click', _onPlaceClick);
   placeOverlay.addEventListener('click', function(e) { if (e.target === placeOverlay) hideOverlay(placeOverlay); });
+
+  /* Edit PDF — popover buttons */
+  document.getElementById('popover-edit-btn').addEventListener('click', function() {
+    var spanEl = _editState.activeSpanEl;
+    if (!spanEl) return;
+    document.getElementById('edit-span-popover').style.display = 'none';
+    var inlineEl = document.getElementById('edit-inline-input');
+    inlineEl.style.display = 'block';
+    _positionPopup(inlineEl, spanEl);
+    var inp = document.getElementById('edit-inline-text');
+    inp.value = spanEl.dataset.text || '';
+    inp.focus(); inp.select();
+  });
+
+  document.getElementById('popover-delete-btn').addEventListener('click', function() {
+    var spanEl = _editState.activeSpanEl;
+    if (!spanEl) return;
+    _editChanges.push({
+      action:  'delete',
+      page:    _placeState.pageNum,
+      x0_pct: parseFloat(spanEl.dataset.x0),
+      y0_pct: parseFloat(spanEl.dataset.y0),
+      x1_pct: parseFloat(spanEl.dataset.x1),
+      y1_pct: parseFloat(spanEl.dataset.y1),
+    });
+    spanEl.style.opacity    = '0.35';
+    spanEl.style.background = 'rgba(248,113,113,0.15)';
+    spanEl.style.border     = '1px solid rgba(248,113,113,0.4)';
+    _closeAllEditPopups();
+    _updateChangeCount();
+  });
+
+  document.getElementById('edit-inline-confirm').addEventListener('click', function() {
+    var spanEl  = _editState.activeSpanEl;
+    var newText = document.getElementById('edit-inline-text').value.trim();
+    if (!newText || !spanEl) return;
+    _editChanges.push({
+      action:    'replace',
+      page:      _placeState.pageNum,
+      x0_pct:    parseFloat(spanEl.dataset.x0),
+      y0_pct:    parseFloat(spanEl.dataset.y0),
+      x1_pct:    parseFloat(spanEl.dataset.x1),
+      y1_pct:    parseFloat(spanEl.dataset.y1),
+      new_text:  newText,
+      font_size: parseFloat(spanEl.dataset.fontSize) || 12,
+      color:     spanEl.dataset.color || '000000',
+    });
+    spanEl.style.opacity    = '0.35';
+    spanEl.style.background = 'rgba(74,222,128,0.10)';
+    spanEl.style.border     = '1px dashed rgba(74,222,128,0.5)';
+    _closeAllEditPopups();
+    _updateChangeCount();
+  });
+
+  document.getElementById('edit-inline-cancel').addEventListener('click', _closeAllEditPopups);
+
+  document.getElementById('edit-add-confirm').addEventListener('click', function() {
+    var newText = document.getElementById('edit-add-text').value.trim();
+    if (!newText || !_pendingAddCoords) return;
+    _editChanges.push({
+      action:    'add',
+      page:      _placeState.pageNum,
+      x_pct:     _pendingAddCoords.x_pct,
+      y_pct:     _pendingAddCoords.y_pct,
+      text:      newText,
+      font_size: 12,
+      color:     '000000',
+    });
+    _closeAllEditPopups();
+    _updateChangeCount();
+  });
+
+  document.getElementById('edit-add-cancel').addEventListener('click', _closeAllEditPopups);
+
+  /* Close popups when clicking outside */
+  document.addEventListener('click', function(e) {
+    var popover = document.getElementById('edit-span-popover');
+    var inline  = document.getElementById('edit-inline-input');
+    var addInp  = document.getElementById('edit-add-input');
+    if (popover.style.display !== 'none' &&
+        !popover.contains(e.target) && !(e.target.classList && e.target.classList.contains('edit-span-highlight'))) {
+      popover.style.display = 'none';
+    }
+    if (inline.style.display !== 'none' && !inline.contains(e.target)) {
+      inline.style.display = 'none';
+    }
+    if (addInp.style.display !== 'none' && !addInp.contains(e.target) && e.target !== document.getElementById('place-preview-img')) {
+      addInp.style.display = 'none';
+      _pendingAddCoords = null;
+    }
+  });
+
+  /* Enter key on inline inputs */
+  document.getElementById('edit-inline-text').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('edit-inline-confirm').click();
+    if (e.key === 'Escape') _closeAllEditPopups();
+  });
+  document.getElementById('edit-add-text').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('edit-add-confirm').click();
+    if (e.key === 'Escape') _closeAllEditPopups();
+  });
 });
 
 /* All conversions now use AJAX — quota errors handled inline via openPw() */
