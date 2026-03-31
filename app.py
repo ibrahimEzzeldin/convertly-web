@@ -3648,78 +3648,43 @@ def support():
     except Exception as exc:
         app.logger.error("Could not save support message: %s", exc)
 
-    # ── Send email via Gmail API (HTTPS, works on Render) ──────────────────
-    def _send_gmail():
+    # ── Send email via Gmail SMTP + App Password (background thread) ──────
+    def _send_smtp():
         try:
-            import urllib.request, urllib.parse, json as _json
-            import base64 as _b64
+            import smtplib
             from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
 
-            client_id     = os.getenv("GMAIL_CLIENT_ID", "")
-            client_secret = os.getenv("GMAIL_CLIENT_SECRET", "")
-            refresh_token = os.getenv("GMAIL_REFRESH_TOKEN", "")
-            sender        = os.getenv("GMAIL_SENDER", "")
-            to_addr       = os.getenv("SUPPORT_EMAIL", "ibrahimezzeldinmirghani@gmail.com")
+            mail_user = os.getenv("MAIL_USERNAME", "")
+            mail_pass = os.getenv("MAIL_PASSWORD", "")
+            to_addr   = os.getenv("SUPPORT_EMAIL", "ibrahimezzeldinmirghani@gmail.com")
 
-            if not all([client_id, client_secret, refresh_token, sender]):
+            if not mail_user or not mail_pass:
+                app.logger.warning("Support email: MAIL_USERNAME/MAIL_PASSWORD not set")
                 return
 
-            # 1. Get a fresh access token
-            token_data = urllib.parse.urlencode({
-                "client_id":     client_id,
-                "client_secret": client_secret,
-                "refresh_token": refresh_token,
-                "grant_type":    "refresh_token",
-            }).encode()
-            token_req = urllib.request.Request(
-                "https://oauth2.googleapis.com/token",
-                data=token_data,
-                method="POST",
-            )
-            try:
-                with urllib.request.urlopen(token_req, timeout=15) as r:
-                    token_resp = _json.loads(r.read())
-                    access_token = token_resp["access_token"]
-                    app.logger.info("Gmail token obtained OK")
-            except urllib.error.HTTPError as e:
-                app.logger.error("Gmail token refresh failed %s: %s", e.code, e.read().decode())
-                return
-
-            # 2. Build the email
             body = f"Topic: {subject_type}\n"
             if user_email:
                 body += f"Reply-to: {user_email}\n"
             body += f"\n{message}"
 
-            msg = MIMEText(body, "plain")
-            msg["From"]    = sender
+            msg = MIMEMultipart()
+            msg["From"]    = mail_user
             msg["To"]      = to_addr
             msg["Subject"] = f"[Convertly Support] {subject_type}"
             if user_email:
                 msg["Reply-To"] = user_email
+            msg.attach(MIMEText(body, "plain"))
 
-            raw = _b64.urlsafe_b64encode(msg.as_bytes()).decode()
-
-            # 3. Send via Gmail API
-            send_req = urllib.request.Request(
-                "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-                data=_json.dumps({"raw": raw}).encode(),
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type":  "application/json",
-                },
-                method="POST",
-            )
-            try:
-                with urllib.request.urlopen(send_req, timeout=15) as r:
-                    app.logger.info("Gmail API sent: %s", r.status)
-            except urllib.error.HTTPError as e:
-                app.logger.error("Gmail API send failed %s: %s", e.code, e.read().decode())
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as smtp:
+                smtp.login(mail_user, mail_pass)
+                smtp.sendmail(mail_user, to_addr, msg.as_string())
+            app.logger.info("Support email sent OK")
 
         except Exception as exc:
-            app.logger.error("Gmail API send failed: %s", exc)
+            app.logger.error("Support email failed: %s", exc)
 
-    threading.Thread(target=_send_gmail, daemon=True).start()
+    threading.Thread(target=_send_smtp, daemon=True).start()
 
     return render_template("support.html", sent=True, error=None)
 
