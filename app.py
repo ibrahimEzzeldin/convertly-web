@@ -3624,42 +3624,67 @@ def support():
         return render_template("support.html", sent=False,
                                error="Please fill in all required fields.")
 
-    # ── Send email via Gmail SMTP (background thread to avoid worker timeout)
-    import smtplib, threading
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
+    # ── Save message to SQLite ─────────────────────────────────────────────
+    import sqlite3 as _sqlite3
+    import tempfile as _tempfile
 
-    mail_user = os.getenv("MAIL_USERNAME", "")
-    mail_pass = os.getenv("MAIL_PASSWORD", "")
-    to_addr   = os.getenv("SUPPORT_EMAIL", "ibrahimezzeldinmirghani@gmail.com")
-
-    body = f"Type: {subject_type}\n"
-    if user_email:
-        body += f"Reply-to: {user_email}\n"
-    body += f"\n{message}"
-
-    if mail_user and mail_pass:
-        def _send():
-            try:
-                msg = MIMEMultipart()
-                msg["From"]    = mail_user
-                msg["To"]      = to_addr
-                msg["Subject"] = f"[Convertly] {subject_type}"
-                if user_email:
-                    msg["Reply-To"] = user_email
-                msg.attach(MIMEText(body, "plain"))
-
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
-                    smtp.login(mail_user, mail_pass)
-                    smtp.sendmail(mail_user, to_addr, msg.as_string())
-            except BaseException as exc:
-                app.logger.error("Support email failed: %s", exc)
-
-        threading.Thread(target=_send, daemon=True).start()
-    else:
-        app.logger.info("Support message (no SMTP configured): %s", body)
+    _db_path = os.getenv("QUOTA_DB_PATH", os.path.join(_tempfile.gettempdir(), "quota.db"))
+    try:
+        with _sqlite3.connect(_db_path, timeout=10) as _conn:
+            _conn.execute("""
+                CREATE TABLE IF NOT EXISTS support_messages (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created   TEXT    NOT NULL,
+                    topic     TEXT    NOT NULL,
+                    email     TEXT,
+                    message   TEXT    NOT NULL
+                )
+            """)
+            _conn.execute(
+                "INSERT INTO support_messages (created, topic, email, message) VALUES (?,?,?,?)",
+                (_datetime.utcnow().isoformat(sep=" ", timespec="seconds"),
+                 subject_type, user_email or None, message)
+            )
+        app.logger.info("Support message saved to DB.")
+    except Exception as exc:
+        app.logger.error("Could not save support message: %s", exc)
 
     return render_template("support.html", sent=True, error=None)
+
+
+# ── Admin: view support messages ──────────────────────────────────────────
+
+@app.route("/admin/messages")
+def admin_messages():
+    import sqlite3 as _sqlite3, tempfile as _tempfile, hmac as _hmac
+    password = request.args.get("pw", "")
+    admin_pw = os.getenv("ADMIN_PASSWORD", "")
+    if not admin_pw or not _hmac.compare_digest(password, admin_pw):
+        return "Unauthorized", 401
+
+    _db_path = os.getenv("QUOTA_DB_PATH", os.path.join(_tempfile.gettempdir(), "quota.db"))
+    rows = []
+    try:
+        with _sqlite3.connect(_db_path, timeout=10) as _conn:
+            _conn.row_factory = _sqlite3.Row
+            rows = _conn.execute(
+                "SELECT id, created, topic, email, message FROM support_messages ORDER BY id DESC"
+            ).fetchall()
+    except Exception:
+        pass
+
+    html = ["<html><head><meta charset='utf-8'><title>Support Messages</title>",
+            "<style>body{font-family:sans-serif;padding:24px;max-width:860px;margin:auto}",
+            "table{width:100%;border-collapse:collapse}",
+            "th,td{text-align:left;padding:8px 12px;border-bottom:1px solid #ddd;vertical-align:top}",
+            "th{background:#f5f5f5}pre{white-space:pre-wrap;margin:0}</style></head><body>",
+            f"<h2>Support Messages ({len(rows)})</h2>",
+            "<table><tr><th>#</th><th>Date</th><th>Topic</th><th>Email</th><th>Message</th></tr>"]
+    for r in rows:
+        html.append(f"<tr><td>{r['id']}</td><td>{r['created']}</td><td>{r['topic']}</td>"
+                    f"<td>{r['email'] or '—'}</td><td><pre>{r['message']}</pre></td></tr>")
+    html.append("</table></body></html>")
+    return "\n".join(html)
 
 
 # ── Cache headers for static files ────────────────────────────────────────
