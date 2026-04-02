@@ -359,10 +359,12 @@ MODES = {
 
 ALLOWED_MIME_TYPES = {
     ".pdf":  ["application/pdf"],
-    ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
-    ".doc":  ["application/msword"],
-    ".xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
-    ".xls":  ["application/vnd.ms-excel"],
+    ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/octet-stream", "application/zip"],
+    ".doc":  ["application/msword", "application/octet-stream"],
+    ".xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              "application/octet-stream", "application/zip"],
+    ".xls":  ["application/vnd.ms-excel", "application/octet-stream"],
 }
 
 # ── File validation ────────────────────────────────────────────────────────
