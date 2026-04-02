@@ -1469,7 +1469,7 @@ def organize_pdf_reorder():
 def create_paypal_order():
     if not PAYPAL_CLIENT_ID or not PAYPAL_CLIENT_SECRET:
         # Fall back to direct payment link if API credentials are not set
-        return jsonify({"approval_url": "https://www.paypal.com/ncp/payment/T5VKFKXKW8AYG"}), 200
+        return redirect("https://www.paypal.com/ncp/payment/T5VKFKXKW8AYG")
 
     try:
         token    = _paypal_access_token()
@@ -1507,7 +1507,7 @@ def create_paypal_order():
 
     session["pending_paypal_order_id"] = order["id"]
     session.modified = True
-    return jsonify({"approval_url": approval_url})
+    return redirect(approval_url)
 
 
 @app.route("/payment-success")
