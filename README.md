@@ -1,77 +1,116 @@
-# Convertly - Fast & Easy File Conversion
+# Convertly - Free Online PDF & Document Toolkit
 
-Convert your files between different formats instantly. No installation needed, no software to download. Just upload and convert.
+All-in-one PDF toolkit — convert, merge, split, compress, edit, sign, translate, and more. No sign-up, no installation. Just upload and go.
 
 **Website**: [https://convertly-web.onrender.com](https://convertly-web.onrender.com)
 
+## Tools
+
+### Convert
+| Tool | Description |
+|---|---|
+| PDF to Word | Convert PDF files to editable Word documents (.docx) |
+| Word to PDF | Convert Word documents (.docx, .doc) to PDF |
+| PDF to Excel | Extract tables from PDFs into Excel spreadsheets (.xlsx) |
+| Excel to PDF | Convert Excel spreadsheets to PDF |
+| PDF to JPG | Convert PDF pages to high-quality JPEG images |
+| JPG to PDF | Combine one or more images (JPG, PNG, WEBP, BMP, GIF, TIFF) into a single PDF |
+
+### Organise
+| Tool | Description |
+|---|---|
+| Merge PDF | Combine multiple PDF files into one (up to 20 files) |
+| Split PDF | Split a PDF by page ranges into separate files |
+| Remove Pages | Delete specific pages from a PDF |
+| Extract Pages | Keep only the pages you need |
+| Compress PDF | Reduce PDF file size (lossless, balanced, or maximum compression) |
+| Organize PDF | Drag-and-drop page reordering with visual thumbnails |
+| Rotate PDF | Rotate pages 90, 180, or 270 degrees |
+| Add Page Numbers | Stamp page numbers on every page with custom positioning |
+
+### Edit & Sign
+| Tool | Description |
+|---|---|
+| Edit PDF | Click-to-place text editor with live page preview |
+| Watermark PDF | Add text watermarks across all pages |
+| Sign PDF | Draw, type, or upload a signature onto your PDF |
+| Translate PDF | AI-powered PDF translation supporting 23+ languages |
+
+### Protect
+| Tool | Description |
+|---|---|
+| Protect PDF | Add password protection to your PDF |
+| Unlock PDF | Remove password protection from encrypted PDFs |
+
 ## Features
 
-- **File Format Conversion** - Convert documents, images, and other files between multiple formats
-- **Multilingual Support** - User interface available in multiple languages with ISO language codes
-- **Translation Service** - Built-in translation capabilities for converted content
-- **Freemium Model** - Free tier with limited conversions, premium tier for unlimited access
-- **PayPal Integration** - Secure payment processing for premium features
-- **Voucher System** - Support for promotional codes and vouchers
-- **User-Friendly Interface** - Clean, responsive web interface for easy file uploads
-- **SEO Optimized** - Sitemap support and search engine optimization
-- **Secure** - Content Security Policy headers and secure session management
-- **Containerized Deployment** - Docker support for easy deployment to cloud platforms
+- **20+ PDF tools** in one place
+- **No sign-up required** — start using immediately
+- **Free tier** — 3 free conversions, no registration needed
+- **One-time payment** — $2 for 20 additional conversions via PayPal (no subscription)
+- **Voucher codes** — promotional codes for free conversions
+- **RTL language support** — full Arabic and Hebrew text rendering in PDFs
+- **AI translation** — translate PDFs into 23+ languages
+- **Mobile-friendly** — responsive design works on any device
+- **Files auto-deleted** — uploaded files are removed after processing
 
-## Why Choose Convertly?
+## Tech Stack
 
-- ✅ **Fast** - Convert files in seconds
-- ✅ **Simple** - No complex settings, just upload and convert
-- ✅ **Secure** - Your files are processed safely and deleted after 24 hours
-- ✅ **Multilingual** - Use Convertly in your preferred language
-- ✅ **Affordable** - Free tier available, pay only for what you need
-- ✅ **No Installation** - Works in any modern web browser
+- **Backend**: Python 3.11 / Flask
+- **PDF Engine**: PyMuPDF (fitz), ReportLab, pdfminer, pdf2docx
+- **Frontend**: Vanilla JS + Bootstrap (single-page app)
+- **Payments**: PayPal
+- **Translation**: MyMemory API
+- **Deployment**: Docker + Gunicorn on Render
 
 ## Getting Started
 
-Visit **[Convertly Web App](https://convertly-web.onrender.com)** to start converting your files right away!
+Visit **[convertly-web.onrender.com](https://convertly-web.onrender.com)** to start using Convertly right away.
 
-No installation required - just upload your file and convert it online.
+### Run Locally
 
+```bash
+# Clone the repo
+git clone https://github.com/ibrahimEzzeldin/convertly-web.git
+cd convertly-web
 
+# Create virtual environment
+python -m venv .venv
+source .venv/Scripts/activate   # Windows
+# source .venv/bin/activate     # Linux/Mac
 
-## How It Works
+# Install dependencies
+pip install -r requirements.txt
 
-### Free Tier
-- Get 3 free conversions to try out Convertly
-- Perfect for testing different file formats
-- No registration required
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your keys
 
-### Premium Access
-- Unlimited conversions
-- Pay once or use voucher codes
-- Instant file conversion
-- Download immediately
-
-### Supported Languages
-- English
-- Spanish
-- French
-- German
-- Arabic
-- And more...
-
-
+# Run the server
+python app.py
+# Open http://127.0.0.1:5000
+```
 
 ## Security
 
-- **CSP Headers**: Content Security Policy enabled
-- **Session Security**: Secure, HttpOnly cookies
-- **Secret Management**: API keys stored in environment variables
-- **File Validation**: Uploaded files validated before processing
-- **Rate Limiting**: Conversion rate limits to prevent abuse
+- **CSRF Protection** — all forms protected with flask-wtf tokens
+- **Content Security Policy** — strict CSP headers on all responses
+- **Rate Limiting** — per-endpoint rate limits to prevent abuse
+- **File Validation** — file type, MIME type, magic bytes, and size checks
+- **Secure Sessions** — HttpOnly, Secure, SameSite cookies
+- **Server-side Quota** — fingerprint-based tracking that can't be bypassed client-side
+- **Input Sanitization** — log sanitization to prevent credential leaks
 
+## Pricing
 
+| Plan | Conversions | Price |
+|---|---|---|
+| Free | 3 | $0 |
+| Pro | 20 | $2 (one-time) |
+
+No subscription. No account required.
 
 ## Contact & Feedback
 
-Have questions or suggestions? We'd love to hear from you!
-
-- Open an issue on GitHub: [Issues](https://github.com/ibrahimEzzeldin/convertly-web/issues)
-- Visit our website: [https://convertly-web.onrender.com](https://convertly-web.onrender.com)
-
-
+- Open an issue: [GitHub Issues](https://github.com/ibrahimEzzeldin/convertly-web/issues)
+- Support page: [convertly-web.onrender.com/support](https://convertly-web.onrender.com/support)
