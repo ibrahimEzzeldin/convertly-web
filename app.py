@@ -145,9 +145,7 @@ csrf = CSRFProtect(app)
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
     logger.warning("CSRF validation failed: %s", e.description)
-    payload = {"error": "CSRF token validation failed. Please refresh and try again."}
-    if app.debug or os.getenv("CSRF_ERROR_DETAILS", "False").lower() == "true":
-        payload["details"] = e.description
+    payload = {"error": "Your session has expired. Please refresh the page and try again."}
     return jsonify(payload), 400
 
 # ── CSP nonce + security headers ───────────────────────────────────────────
@@ -373,11 +371,11 @@ def validate_file(file, allowed_extensions, max_size):
         return False, "No file provided."
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in allowed_extensions:
-        return False, f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+        return False, f"Your file ({file_ext or 'unknown'}) is not supported here. Please upload a {', '.join(allowed_extensions)} file."
     if hasattr(file, "content_type"):
         allowed_mimes = ALLOWED_MIME_TYPES.get(file_ext, [])
         if allowed_mimes and file.content_type not in allowed_mimes:
-            return False, f"Invalid file format for {file_ext} file."
+            return False, f"This file doesn't appear to be a valid {file_ext} file. Please check your file and try again."
     file.seek(0, 2)
     file_size = file.tell()
     file.seek(0)
@@ -514,7 +512,7 @@ def convert():
         file.seek(0)
         if not any(header.startswith(m) for m in expected_magic):
             logger.warning("Magic byte mismatch for file: %s", file.filename)
-            return jsonify({"error": "File content does not match its extension."}), 400
+            return jsonify({"error": "This file doesn't appear to be a real {0} file. The content doesn't match. Please check your file.".format(file_ext)}), 400
 
     # ── SERVER-SIDE Quota check using fingerprint ──────────────────────────
     fingerprint = get_client_fingerprint(request)

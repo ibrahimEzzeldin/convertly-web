@@ -1732,8 +1732,7 @@ function handleSubmit(e) {
       .then(function(data) {
         btn2.disabled = false; btn2.textContent = '⚡ ' + getToolLabel(selectedTool); btn2.classList.add('ready');
         if (data.error) {
-          if (data.error === 'quota_exceeded') openPw();
-          else showToast(data.error, true);
+          handleApiError(data, 'Failed to load preview.');
           return;
         }
         /* Build page grid */
@@ -1808,8 +1807,7 @@ function handleSubmit(e) {
       reader.onload = function() {
         try {
           var d = JSON.parse(reader.result);
-          if (d.error === 'quota_exceeded') openPw();
-          else showToast(d.error || 'Processing failed.', true);
+          handleApiError(d, 'Processing failed. Please try again.');
         } catch(ex) { showToast('Processing failed. Please try again.', true); }
       };
       reader.readAsText(xhr.response);
@@ -1915,6 +1913,13 @@ function showToast(msg, isErr) {
   t.className = 'toast show' + (isErr ? ' err' : '');
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 3500);
+}
+
+/* Handle API error response — shows friendly message or paywall */
+function handleApiError(errObj, fallback) {
+  if (!errObj) { showToast(fallback || 'Something went wrong. Please try again.', true); return; }
+  if (errObj.error === 'quota_exceeded') { openPw(); return; }
+  showToast(errObj.error || fallback || 'Something went wrong. Please try again.', true);
 }
 
 /* ── Overlay helpers (fix opacity transition) ─────────── */
@@ -2062,8 +2067,7 @@ function _doTranslate(transPages) {
       reader.onload = function() {
         try {
           var d = JSON.parse(reader.result);
-          if (d.error === 'quota_exceeded') openPw();
-          else showToast(d.error || 'Translation failed.', true);
+          handleApiError(d, 'Translation failed. Please try again.');
         } catch(ex) { showToast('Translation failed. Please try again.', true); }
       };
       reader.readAsText(xhr.response);
@@ -2212,7 +2216,7 @@ function _loadEditPage(pageNum) {
   fetch('/pdf-text-extract', { method: 'POST', body: fd2, credentials: 'same-origin' })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      if (d.error) return;
+      if (d.error) { handleApiError(d, 'Could not extract text from this page.'); return; }
       _editState.spans     = d.spans || [];
       _editState.pageWidth  = d.page_width;
       _editState.pageHeight = d.page_height;
@@ -2286,7 +2290,7 @@ function _loadPlacePage(pageNum) {
     .then(function(r) { return r.json(); })
     .then(function(d) {
       loading.style.display = 'none';
-      if (d.error) { showToast(d.error, true); document.getElementById('place-overlay').style.display = 'none'; return; }
+      if (d.error) { handleApiError(d, 'Failed to load page preview.'); document.getElementById('place-overlay').style.display = 'none'; return; }
       _placeState.totalPages = d.total_pages || 1;
       _placeState.pageNum    = pageNum;
       img.src           = 'data:image/jpeg;base64,' + d.image;
@@ -2393,8 +2397,7 @@ function _confirmEditChanges() {
       reader.onload = function() {
         try {
           var d = JSON.parse(reader.result);
-          if (d.error === 'quota_exceeded') openPw();
-          else showToast(d.error || 'Processing failed.', true);
+          handleApiError(d, 'Processing failed. Please try again.');
         } catch(ex) { showToast('Processing failed. Please try again.', true); }
       };
       reader.readAsText(xhr.response);
@@ -2445,8 +2448,7 @@ function _confirmPlacement() {
       reader.onload = function() {
         try {
           var d = JSON.parse(reader.result);
-          if (d.error === 'quota_exceeded') openPw();
-          else showToast(d.error || 'Processing failed.', true);
+          handleApiError(d, 'Processing failed. Please try again.');
         } catch(ex) { showToast('Processing failed. Please try again.', true); }
       };
       reader.readAsText(xhr.response);
@@ -2534,8 +2536,7 @@ function _applyOrgReorder() {
       reader2.onload = function() {
         try {
           var d = JSON.parse(reader2.result);
-          if (d.error === 'quota_exceeded') openPw();
-          else showToast(d.error || 'Reorder failed.', true);
+          handleApiError(d, 'Reorder failed. Please try again.');
         } catch(ex) { showToast('Reorder failed. Please try again.', true); }
       };
       reader2.readAsText(xhr2.response);
