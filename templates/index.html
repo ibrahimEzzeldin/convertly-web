@@ -13,6 +13,21 @@
   max-width: 960px;
   margin: 0 auto;
   animation: fadeUp .6s var(--ease) both;
+  position: relative;
+  overflow: visible;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse at center, rgba(74,222,128,.08) 0%, rgba(163,230,53,.04) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(40px);
 }
 .hero-eyebrow {
   display: inline-flex;
@@ -85,7 +100,7 @@
   animation: fadeUp .5s var(--ease) both;
   transition: border-color var(--t);
 }
-.step-block:hover { border-color: var(--border-2); }
+.step-block:hover { border-color: var(--border-2); box-shadow: 0 2px 12px rgba(0,0,0,.15); }
 .step-block.active { border-color: var(--border-3); }
 
 .step-head {
@@ -151,6 +166,25 @@
   background: var(--accent-dim);
   border-color: var(--accent-mid);
 }
+/* Category accent colors */
+.tab-btn[data-category="Convert"].active    { color: #60a5fa; background: rgba(96,165,250,.10); border-color: rgba(96,165,250,.25); }
+.tab-btn[data-category="Organise"].active   { color: #fb923c; background: rgba(251,146,60,.10); border-color: rgba(251,146,60,.25); }
+.tab-btn[data-category="Edit & Sign"].active,
+.tab-btn[data-category="Edit &amp; Sign"].active { color: #c084fc; background: rgba(192,132,252,.10); border-color: rgba(192,132,252,.25); }
+.tab-btn[data-category="Protect"].active    { color: #f87171; background: rgba(248,113,113,.10); border-color: rgba(248,113,113,.25); }
+
+/* Category-colored card selection */
+[data-active-category="Convert"] .tool-card.selected    { border-color: #60a5fa; background: rgba(96,165,250,.06); box-shadow: 0 0 0 1px rgba(96,165,250,.15), 0 4px 16px rgba(96,165,250,.08); }
+[data-active-category="Organise"] .tool-card.selected   { border-color: #fb923c; background: rgba(251,146,60,.06); box-shadow: 0 0 0 1px rgba(251,146,60,.15), 0 4px 16px rgba(251,146,60,.08); }
+[data-active-category="Edit & Sign"] .tool-card.selected,
+[data-active-category="Edit &amp; Sign"] .tool-card.selected { border-color: #c084fc; background: rgba(192,132,252,.06); box-shadow: 0 0 0 1px rgba(192,132,252,.15), 0 4px 16px rgba(192,132,252,.08); }
+[data-active-category="Protect"] .tool-card.selected    { border-color: #f87171; background: rgba(248,113,113,.06); box-shadow: 0 0 0 1px rgba(248,113,113,.15), 0 4px 16px rgba(248,113,113,.08); }
+
+[data-active-category="Convert"] .tool-card.selected .card-check    { background: #60a5fa; }
+[data-active-category="Organise"] .tool-card.selected .card-check   { background: #fb923c; }
+[data-active-category="Edit & Sign"] .tool-card.selected .card-check,
+[data-active-category="Edit &amp; Sign"] .tool-card.selected .card-check { background: #c084fc; }
+[data-active-category="Protect"] .tool-card.selected .card-check    { background: #f87171; }
 
 /* ── Tool Cards ───────────────────────────────────────── */
 .tool-grid {
@@ -178,6 +212,12 @@
   border-color: var(--accent);
   background: rgba(74,222,128,.06);
   box-shadow: 0 0 0 1px rgba(74,222,128,.15), 0 4px 16px rgba(74,222,128,.08);
+  animation: cardSelect .35s var(--ease);
+}
+@keyframes cardSelect {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
 }
 .tool-card.hidden { display: none; }
 
@@ -202,7 +242,7 @@
   transform: scale(.5);
   transition: opacity var(--t), transform var(--t);
 }
-.tool-card.selected .card-check { opacity: 1; transform: scale(1); }
+.tool-card.selected .card-check { opacity: 1; transform: scale(1); transition: opacity .15s var(--ease), transform .25s cubic-bezier(.34,1.56,.64,1); }
 
 /* ── Tool Options ─────────────────────────────────────── */
 .options-panel {
@@ -510,10 +550,105 @@
   opacity: 0;
   transition: opacity .2s var(--ease), transform .2s var(--ease);
   transform: translateY(8px);
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
 }
 .toast.show { opacity: 1; transform: translateY(0); pointer-events: all; }
 .toast.err  { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.3); color: #fca5a5; }
+.toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: .5;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: opacity var(--t);
+}
+.toast-close:hover { opacity: 1; }
+.toast-share {
+  background: none;
+  border: 1px solid var(--border-2);
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  transition: background var(--t), border-color var(--t);
+  font-family: var(--font);
+}
+.toast-share:hover { background: var(--accent-dim); border-color: var(--accent-mid); }
+
+/* ── Success overlay animation ───────────────────────── */
+.success-burst {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  animation: burstIn .5s var(--ease) forwards;
+}
+.success-burst.out { animation: burstOut .4s var(--ease) forwards; }
+@keyframes burstIn {
+  0%   { opacity: 0; }
+  30%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+@keyframes burstOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.success-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 60px rgba(74,222,128,.5), 0 0 120px rgba(74,222,128,.2);
+  animation: circleScale .5s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+@keyframes circleScale {
+  0%   { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+.success-check {
+  font-size: 42px;
+  color: #081a0f;
+  animation: checkDraw .3s var(--ease) .2s both;
+}
+@keyframes checkDraw {
+  0%   { opacity: 0; transform: scale(0) rotate(-10deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.success-particles {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+}
+.success-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  animation: particleFly .7s var(--ease) forwards;
+}
+@keyframes particleFly {
+  0%   { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+  100% { opacity: 0; }
+}
 
 #translate-overlay {
   position: fixed;
@@ -566,6 +701,10 @@
 .trans-page-tile .tp-num  { font-size: 11px; color: var(--text-2); display: block; }
 .trans-page-tile .tp-chk  { position: absolute; top: 4px; right: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: #000; font-size: 9px; font-weight: 700; display: none; align-items: center; justify-content: center; }
 .trans-page-tile.sel .tp-chk { display: flex; }
+
+[data-theme="light"] .hero::before {
+  background: radial-gradient(ellipse at center, rgba(22,163,74,.06) 0%, rgba(74,222,128,.03) 40%, transparent 70%);
+}
 
 /* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 600px) {
@@ -697,10 +836,10 @@
         </div>
 
         <!-- Tool cards -->
-        <div class="tool-grid" role="list">
+        <div class="tool-grid" role="list" data-active-category="Convert">
 
           <!-- Convert -->
-          <div class="tool-card" role="listitem"
+          <div class="tool-card" tabindex="0" role="listitem"
                data-category="Convert" data-tool="pdf-to-word"
                data-action="{{ url_for('convert') }}"
                data-accept=".pdf" data-fname="file"
@@ -711,7 +850,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card" role="listitem"
+          <div class="tool-card" tabindex="0" role="listitem"
                data-category="Convert" data-tool="pdf-to-excel"
                data-action="{{ url_for('convert') }}"
                data-accept=".pdf" data-fname="file"
@@ -722,7 +861,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card" role="listitem"
+          <div class="tool-card" tabindex="0" role="listitem"
                data-category="Convert" data-tool="word-to-pdf"
                data-action="{{ url_for('convert') }}"
                data-accept=".doc,.docx" data-fname="file"
@@ -733,7 +872,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card" role="listitem"
+          <div class="tool-card" tabindex="0" role="listitem"
                data-category="Convert" data-tool="excel-to-pdf"
                data-action="{{ url_for('convert') }}"
                data-accept=".xls,.xlsx" data-fname="file"
@@ -745,7 +884,7 @@
           </div>
 
           <!-- Organise -->
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Organise" data-tool="merge-pdf"
                data-action="{{ url_for('merge_pdf_route') }}"
                data-accept=".pdf" data-fname="files[]" data-multi="true"
@@ -756,7 +895,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Organise" data-tool="split-pdf"
                data-action="{{ url_for('split_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -767,7 +906,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Organise" data-tool="remove-pages"
                data-action="{{ url_for('remove_pages_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -778,7 +917,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Organise" data-tool="extract-pages"
                data-action="{{ url_for('extract_pages_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -789,7 +928,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Organise" data-tool="organize-pdf"
                data-action="{{ url_for('organize_pdf_preview') }}"
                data-accept=".pdf" data-fname="file"
@@ -800,7 +939,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Organise" data-tool="compress-pdf"
                data-action="{{ url_for('compress_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -811,7 +950,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Organise" data-tool="pdf-to-jpg"
                data-action="{{ url_for('pdf_to_jpg_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -822,7 +961,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Organise" data-tool="jpg-to-pdf"
                data-action="{{ url_for('jpg_to_pdf_route') }}"
                data-accept=".jpg,.jpeg,.png,.webp" data-fname="files[]" data-multi="true"
@@ -834,7 +973,7 @@
           </div>
 
           <!-- Edit & Sign -->
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Edit &amp; Sign" data-tool="watermark-pdf"
                data-action="{{ url_for('watermark_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -845,7 +984,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Edit &amp; Sign" data-tool="rotate-pdf"
                data-action="{{ url_for('rotate_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -856,7 +995,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Edit &amp; Sign" data-tool="page-numbers"
                data-action="{{ url_for('page_numbers_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -867,7 +1006,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Edit &amp; Sign" data-tool="translate-pdf"
                data-action="{{ url_for('translate_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -878,7 +1017,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Edit &amp; Sign" data-tool="sign-pdf"
                data-action="{{ url_for('sign_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -889,7 +1028,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Edit &amp; Sign" data-tool="edit-pdf"
                data-action="{{ url_for('edit_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -901,7 +1040,7 @@
           </div>
 
           <!-- Protect -->
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Protect" data-tool="unlock-pdf"
                data-action="{{ url_for('unlock_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -912,7 +1051,7 @@
             <div class="card-check">✓</div>
           </div>
 
-          <div class="tool-card hidden" role="listitem"
+          <div class="tool-card hidden" tabindex="0" role="listitem"
                data-category="Protect" data-tool="protect-pdf"
                data-action="{{ url_for('protect_pdf_route') }}"
                data-accept=".pdf" data-fname="file"
@@ -1240,6 +1379,9 @@
         <!-- Multi-file hint -->
         <div class="multi-hint" id="multi-hint">✓ Multiple files accepted for this tool</div>
 
+        <!-- File size warning -->
+        <div id="file-size-warn" style="display:none;font-size:12px;font-family:var(--mono);padding:8px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:var(--radius-sm);margin-top:8px"></div>
+
         <!-- File preview -->
         <div class="file-preview" id="file-preview">
           <div class="fp-icon" id="fp-icon">📄</div>
@@ -1423,7 +1565,22 @@
 </section>
 
 <!-- ── Toast ────────────────────────────────────────────────── -->
-<div class="toast-wrap"><div class="toast" id="toast"></div></div>
+<div class="toast-wrap" role="status" aria-live="assertive" aria-atomic="true"><div class="toast" id="toast"></div></div>
+
+<!-- Keyboard shortcut help panel -->
+<div id="shortcut-help" style="display:none;position:fixed;bottom:80px;right:20px;z-index:450;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--radius);padding:18px 22px;box-shadow:var(--shadow-lg);max-width:280px;width:100%;animation:fadeUp .25s var(--ease) both">
+  <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+    Keyboard Shortcuts
+    <button onclick="document.getElementById('shortcut-help').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px">✕</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text-2)">
+    <div style="display:flex;justify-content:space-between"><span>Switch category</span><span style="font-family:var(--mono);color:var(--muted);font-size:11px">1 2 3 4</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Upload file</span><span style="font-family:var(--mono);color:var(--muted);font-size:11px">Ctrl+U</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Convert / Submit</span><span style="font-family:var(--mono);color:var(--muted);font-size:11px">Ctrl+Enter</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Close modal</span><span style="font-family:var(--mono);color:var(--muted);font-size:11px">Esc</span></div>
+    <div style="display:flex;justify-content:space-between"><span>This help</span><span style="font-family:var(--mono);color:var(--muted);font-size:11px">?</span></div>
+  </div>
+</div>
 
 {% endblock %}
 
@@ -1491,6 +1648,8 @@ function selectTool(card) {
   fi.accept   = accept;
   fi.multiple = isMulti;
   fi.name     = fname;
+  fi.value    = '';
+  _multiDT    = null; /* Reset accumulator on tool switch */
 
   /* Multi-file hint */
   document.getElementById('multi-hint').classList.toggle('visible', isMulti);
@@ -1520,6 +1679,10 @@ function filterTools(category, btn) {
   /* Update tab buttons */
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+
+  /* Set active category for accent coloring */
+  var grid = document.querySelector('.tool-grid');
+  if (grid) grid.setAttribute('data-active-category', category);
 
   /* Show/hide cards */
   document.querySelectorAll('.tool-card').forEach(card => {
@@ -1575,6 +1738,34 @@ function showOptions(tool) {
   }
 }
 
+/* ── Multi-file accumulator ───────────────────────────────── */
+var _multiDT = null; /* DataTransfer that accumulates files for multi-file tools */
+
+function _isMultiTool() {
+  if (!selectedTool) return false;
+  var card = document.querySelector('.tool-card[data-tool="' + selectedTool + '"]');
+  return card && card.dataset.multi === 'true';
+}
+
+function _addFiles(newFiles) {
+  var fi = document.getElementById('file-input');
+  try {
+    if (_isMultiTool()) {
+      if (!_multiDT) _multiDT = new DataTransfer();
+      Array.from(newFiles).forEach(function(f) { _multiDT.items.add(f); });
+      fi.files = _multiDT.files;
+      showFilePreview(_multiDT.files);
+    } else {
+      var dt = new DataTransfer();
+      Array.from(newFiles).forEach(function(f) { dt.items.add(f); });
+      fi.files = dt.files;
+      showFilePreview(dt.files);
+    }
+  } catch(err) {
+    showToast('Could not add files — please try the browse button.', true);
+  }
+}
+
 /* ── Drag & Drop ──────────────────────────────────────────── */
 function handleDragOver(e) {
   e.preventDefault();
@@ -1595,22 +1786,12 @@ function handleDrop(e) {
 
   var files = e.dataTransfer.files;
   if (!files.length) return;
-
-  var fi = document.getElementById('file-input');
-  /* Create a new DataTransfer to assign files to the input */
-  try {
-    var dt = new DataTransfer();
-    Array.from(files).forEach(f => dt.items.add(f));
-    fi.files = dt.files;
-    showFilePreview(dt.files);
-  } catch(err) {
-    showToast('Drag & drop not supported — please use the browse button.', true);
-  }
+  _addFiles(files);
 }
 
 /* ── File input change ────────────────────────────────────── */
 function handleFileSelect(e) {
-  showFilePreview(e.target.files);
+  _addFiles(e.target.files);
 }
 
 function showFilePreview(files) {
@@ -1647,6 +1828,32 @@ function showFilePreview(files) {
     iconEl.textContent = '📂';
   }
 
+  /* Update hint for multi-file tools */
+  if (_isMultiTool() && files.length >= 1) {
+    document.getElementById('upload-sub').textContent = 'Drop or browse to add more files';
+  }
+
+  /* File size warning near 32MB limit */
+  var maxSize = 32 * 1024 * 1024;
+  var warnSize = 25 * 1024 * 1024;
+  var totalSize = 0;
+  Array.from(files).forEach(function(f) { totalSize += f.size; });
+  var sizeWarn = document.getElementById('file-size-warn');
+  if (sizeWarn) {
+    if (totalSize > maxSize) {
+      sizeWarn.textContent = 'File exceeds the 32 MB limit and may fail to upload.';
+      sizeWarn.style.color = 'var(--danger)';
+      sizeWarn.style.display = 'block';
+    } else if (totalSize > warnSize) {
+      var pct = Math.round((totalSize / maxSize) * 100);
+      sizeWarn.textContent = 'Large file — ' + pct + '% of 32 MB limit. Upload may take longer.';
+      sizeWarn.style.color = 'var(--warn)';
+      sizeWarn.style.display = 'block';
+    } else {
+      sizeWarn.style.display = 'none';
+    }
+  }
+
   preview.classList.add('visible');
   document.getElementById('step2-check').classList.add('visible');
   document.getElementById('step2').classList.add('active');
@@ -1658,10 +1865,15 @@ function clearFile() {
   var fi = document.getElementById('file-input');
   fi.value = '';
   fileSelected = false;
+  _multiDT = null;
 
   document.getElementById('file-preview').classList.remove('visible');
   document.getElementById('step2-check').classList.remove('visible');
   document.getElementById('step2').classList.remove('active');
+
+  /* Reset file size warning */
+  var sizeWarn = document.getElementById('file-size-warn');
+  if (sizeWarn) sizeWarn.style.display = 'none';
 
   /* Reset progress bar */
   var prog = document.getElementById('upload-progress');
@@ -1800,7 +2012,7 @@ function handleSubmit(e) {
       var a     = document.createElement('a'); a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       addToHistory(fname, url, getToolLabel(selectedTool));
-      showToast('Done! Downloading…');
+      showSuccessBurst(); showToast('Done! Downloading…', false, true);
       if (typeof loadQuota === 'function') loadQuota();
     } else {
       var reader = new FileReader();
@@ -1907,12 +2119,72 @@ function fileIcon(name) {
 }
 
 var _toastTimer = null;
-function showToast(msg, isErr) {
+function showToast(msg, isErr, showShare) {
   var t = document.getElementById('toast');
-  t.textContent = msg;
+  t.innerHTML = '';
+  var span = document.createElement('span');
+  span.textContent = msg;
+  t.appendChild(span);
+  if (showShare) {
+    var shareBtn = document.createElement('button');
+    shareBtn.className = 'toast-share';
+    shareBtn.textContent = 'Share';
+    shareBtn.addEventListener('click', function() {
+      if (navigator.share) {
+        navigator.share({ title: 'Convertly', text: 'Free PDF converter — convert, merge, translate and more!', url: window.location.origin }).catch(function(){});
+      } else {
+        window.open('/share', '_blank');
+      }
+    });
+    t.appendChild(shareBtn);
+  }
+  var closeBtn = document.createElement('button');
+  closeBtn.className = 'toast-close';
+  closeBtn.innerHTML = '✕';
+  closeBtn.setAttribute('aria-label', 'Dismiss');
+  closeBtn.addEventListener('click', function() { t.classList.remove('show'); });
+  t.appendChild(closeBtn);
   t.className = 'toast show' + (isErr ? ' err' : '');
   if (_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 3500);
+  _toastTimer = setTimeout(function() { t.classList.remove('show'); }, isErr ? 6000 : showShare ? 5000 : 3500);
+}
+
+/* ── Success burst animation ─────────────────────────────── */
+function showSuccessBurst() {
+  var el = document.createElement('div');
+  el.className = 'success-burst';
+  var particles = document.createElement('div');
+  particles.className = 'success-particles';
+  var colors = ['#4ade80','#a3e635','#34d399','#86efac','#fbbf24','#60a5fa'];
+  for (var i = 0; i < 12; i++) {
+    var p = document.createElement('div');
+    p.className = 'success-particle';
+    p.style.background = colors[i % colors.length];
+    var angle = (i / 12) * 360;
+    var dist = 60 + Math.random() * 40;
+    var dx = Math.cos(angle * Math.PI / 180) * dist;
+    var dy = Math.sin(angle * Math.PI / 180) * dist;
+    p.style.animationDelay = (Math.random() * .15) + 's';
+    p.style.setProperty('--dx', dx + 'px');
+    p.style.setProperty('--dy', dy + 'px');
+    p.style.animation = 'none';
+    setTimeout((function(pp, ddx, ddy) {
+      return function() {
+        pp.style.transition = 'transform .6s cubic-bezier(.25,.46,.45,.94), opacity .6s ease';
+        pp.style.transform = 'translate(calc(-50% + ' + ddx + 'px), calc(-50% + ' + ddy + 'px)) scale(0)';
+        pp.style.opacity = '0';
+      };
+    })(p, dx, dy), 50);
+    particles.appendChild(p);
+  }
+  el.appendChild(particles);
+  var circle = document.createElement('div');
+  circle.className = 'success-circle';
+  circle.innerHTML = '<span class="success-check">✓</span>';
+  el.appendChild(circle);
+  document.body.appendChild(el);
+  setTimeout(function() { el.classList.add('out'); }, 1200);
+  setTimeout(function() { el.remove(); }, 1700);
 }
 
 /* Handle API error response — shows friendly message or paywall */
@@ -2061,7 +2333,7 @@ function _doTranslate(transPages) {
       var a     = document.createElement('a'); a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       addToHistory(fname, url, getToolLabel('translate-pdf'));
-      showToast('Translation complete! Downloading…');
+      showSuccessBurst(); showToast('Translation complete! Downloading…', false, true);
     } else {
       var reader = new FileReader();
       reader.onload = function() {
@@ -2114,6 +2386,16 @@ function _updateChangeCount() {
   btn.disabled       = count === 0;
   btn.textContent    = count > 0 ? 'Apply ' + count + ' Change' + (count !== 1 ? 's' : '') : 'Make a change first';
   btn.style.opacity  = count > 0 ? '1' : '.5';
+}
+
+function _confirmClosePlaceModal() {
+  if (_placeState.tool === 'edit-pdf' && _editChanges.length > 0) {
+    if (!confirm('You have ' + _editChanges.length + ' unsaved change' + (_editChanges.length !== 1 ? 's' : '') + '. Discard and close?')) {
+      return false;
+    }
+  }
+  hideOverlay(document.getElementById('place-overlay'));
+  return true;
 }
 
 function _closeAllEditPopups() {
@@ -2390,7 +2672,7 @@ function _confirmEditChanges() {
       var a     = document.createElement('a'); a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       addToHistory(fname, url, getToolLabel(selectedTool));
-      showToast('Done! Downloading…');
+      showSuccessBurst(); showToast('Done! Downloading…', false, true);
       if (typeof loadQuota === 'function') loadQuota();
     } else {
       var reader = new FileReader();
@@ -2441,7 +2723,7 @@ function _confirmPlacement() {
       var a     = document.createElement('a'); a.href = url; a.download = fname;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       addToHistory(fname, url, getToolLabel(selectedTool));
-      showToast('Done! Downloading…');
+      showSuccessBurst(); showToast('Done! Downloading…', false, true);
       if (typeof loadQuota === 'function') loadQuota();
     } else {
       var reader = new FileReader();
@@ -2586,6 +2868,9 @@ document.addEventListener('DOMContentLoaded', function() {
     card.addEventListener('click', function() {
       selectTool(card);
     });
+    card.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTool(card); }
+    });
   });
 
   /* Initialize: apply the default active tab filter */
@@ -2608,6 +2893,42 @@ document.addEventListener('DOMContentLoaded', function() {
   dz.addEventListener('dragover',  handleDragOver);
   dz.addEventListener('dragleave', handleDragLeave);
   dz.addEventListener('drop',      handleDrop);
+
+  /* Smart drag: detect file type on page-level drag and suggest tools */
+  var _dragHintTimeout = null;
+  document.body.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    if (selectedTool || !e.dataTransfer || !e.dataTransfer.items) return;
+    clearTimeout(_dragHintTimeout);
+    var items = e.dataTransfer.items;
+    var hasPdf = false, hasDoc = false, hasXls = false, hasImg = false;
+    for (var i = 0; i < items.length; i++) {
+      var t = items[i].type || '';
+      if (t === 'application/pdf') hasPdf = true;
+      else if (t.indexOf('word') !== -1 || t.indexOf('document') !== -1) hasDoc = true;
+      else if (t.indexOf('spreadsheet') !== -1 || t.indexOf('excel') !== -1) hasXls = true;
+      else if (t.indexOf('image/') === 0) hasImg = true;
+    }
+    var suggest = null;
+    if (hasPdf)      suggest = 'Convert';
+    else if (hasDoc) suggest = 'Convert';
+    else if (hasXls) suggest = 'Convert';
+    else if (hasImg) suggest = 'Organise';
+    if (suggest) {
+      var tabBtn = document.querySelector('.tab-btn[data-category="' + suggest + '"]');
+      if (tabBtn && !tabBtn.classList.contains('active')) {
+        filterTools(suggest, tabBtn);
+      }
+      document.getElementById('drop-zone').classList.add('dragover');
+    }
+  });
+  document.body.addEventListener('dragleave', function(e) {
+    if (e.relatedTarget === null) {
+      _dragHintTimeout = setTimeout(function() {
+        document.getElementById('drop-zone').classList.remove('dragover');
+      }, 100);
+    }
+  });
 
   /* Clear file button */
   var fpClear = document.getElementById('fp-clear-btn');
@@ -2655,8 +2976,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   /* Place-on-Page modal (Edit PDF & Sign PDF) */
   var placeOverlay = document.getElementById('place-overlay');
-  document.getElementById('place-close-btn').addEventListener('click',  function() { hideOverlay(placeOverlay); });
-  document.getElementById('place-cancel-btn').addEventListener('click', function() { hideOverlay(placeOverlay); });
+  document.getElementById('place-close-btn').addEventListener('click',  function() { _confirmClosePlaceModal(); });
+  document.getElementById('place-cancel-btn').addEventListener('click', function() { _confirmClosePlaceModal(); });
   document.getElementById('place-confirm-btn').addEventListener('click', _confirmPlacement);
   document.getElementById('place-prev-btn').addEventListener('click', function() {
     var prev = _placeState.pageNum - 1;
@@ -2671,7 +2992,7 @@ document.addEventListener('DOMContentLoaded', function() {
     else _loadPlacePage(next);
   });
   document.getElementById('place-preview-wrap').addEventListener('click', _onPlaceClick);
-  placeOverlay.addEventListener('click', function(e) { if (e.target === placeOverlay) hideOverlay(placeOverlay); });
+  placeOverlay.addEventListener('click', function(e) { if (e.target === placeOverlay) _confirmClosePlaceModal(); });
 
   /* Edit PDF — unified popover */
 
@@ -2794,7 +3115,32 @@ function addToHistory(filename, url, tool) {
   filtered.unshift({ filename: filename, url: url, tool: tool, ts: Date.now() });
   saveHistory(filtered.slice(0, HISTORY_MAX));
   renderHistory();
+  _incrementStats();
 }
+
+/* ── Session stats counter ───────────────────────────────── */
+function _incrementStats() {
+  var count = parseInt(sessionStorage.getItem('convertly-stats') || '0', 10) + 1;
+  sessionStorage.setItem('convertly-stats', count);
+  _updateStatsDisplay(count);
+}
+function _updateStatsDisplay(count) {
+  var pill = document.getElementById('stats-pill');
+  var el = document.getElementById('stats-count');
+  if (!pill || !el) return;
+  if (count > 0) {
+    el.textContent = count;
+    pill.style.display = '';
+    pill.style.animation = 'none';
+    pill.offsetHeight;
+    pill.style.animation = 'cardSelect .35s var(--ease)';
+  }
+}
+/* Init stats on load */
+(function() {
+  var c = parseInt(sessionStorage.getItem('convertly-stats') || '0', 10);
+  if (c > 0) _updateStatsDisplay(c);
+})();
 
 function renderHistory() {
   var section = document.getElementById('historySection');
@@ -2816,6 +3162,66 @@ function renderHistory() {
 document.getElementById('historyClear') && document.getElementById('historyClear').addEventListener('click', function() {
   saveHistory([]);
   renderHistory();
+});
+
+/* ── Keyboard shortcuts ──────────────────────────────────── */
+var _shortcutsVisible = false;
+function _toggleShortcutHelp() {
+  var el = document.getElementById('shortcut-help');
+  if (!el) return;
+  _shortcutsVisible = !_shortcutsVisible;
+  el.style.display = _shortcutsVisible ? 'block' : 'none';
+}
+
+document.addEventListener('keydown', function(e) {
+  /* Skip if inside an input/textarea/select */
+  var tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+
+  /* ? — toggle shortcut help */
+  if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+    e.preventDefault();
+    _toggleShortcutHelp();
+    return;
+  }
+
+  /* 1-4: switch category tabs */
+  var cats = ['Convert', 'Organise', 'Edit & Sign', 'Protect'];
+  var num = parseInt(e.key);
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && num >= 1 && num <= 4) {
+    var cat = cats[num - 1];
+    var tabBtn = document.querySelector('.tab-btn[data-category="' + cat + '"]');
+    if (tabBtn) { filterTools(cat, tabBtn); showToast('Category: ' + cat); }
+    return;
+  }
+
+  /* Ctrl+U or Meta+U: open file picker */
+  if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+    e.preventDefault();
+    document.getElementById('file-input').click();
+    return;
+  }
+
+  /* Ctrl+Enter or Meta+Enter: submit if ready */
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    var btn = document.getElementById('convert-btn');
+    if (btn && !btn.disabled) {
+      e.preventDefault();
+      btn.click();
+    }
+    return;
+  }
+
+  /* Escape: close any open overlay */
+  if (e.key === 'Escape') {
+    var overlays = document.querySelectorAll('.overlay.open, .overlay[style*="display: flex"], .overlay[style*="display:flex"]');
+    overlays.forEach(function(ov) {
+      if (ov.id === 'place-overlay') { _confirmClosePlaceModal(); }
+      else { hideOverlay(ov); }
+    });
+    /* Close shortcut help */
+    if (_shortcutsVisible) _toggleShortcutHelp();
+  }
 });
 
 // Render on page load

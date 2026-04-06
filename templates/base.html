@@ -76,6 +76,10 @@
       --shadow-lg:  0 8px 40px rgba(0,0,0,.18);
     }
 
+    [data-theme="light"] .nav {
+      background: rgba(245,245,247,.88);
+    }
+
     /* ── Theme toggle ────────────────────────────────────────── */
     .theme-toggle {
       background: none;
@@ -275,6 +279,97 @@
     }
     .overlay.open .modal { transform: translateY(0) scale(1); }
 
+    /* Paywall-specific modal upgrade */
+    .modal-paywall {
+      border: 1px solid transparent;
+      background-image: linear-gradient(var(--surface-2), var(--surface-2)), linear-gradient(135deg, var(--accent), #a3e635, #34d399, var(--accent));
+      background-origin: border-box;
+      background-clip: padding-box, border-box;
+      max-width: 440px;
+      position: relative;
+      overflow: hidden;
+    }
+    .modal-paywall::before {
+      content: '';
+      position: absolute;
+      top: -80px;
+      right: -80px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(74,222,128,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .pw-social {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 18px;
+      font-family: var(--mono);
+    }
+    .pw-social-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse-dot 2s ease infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74,222,128,.4); }
+      50%      { opacity: .7; box-shadow: 0 0 0 6px rgba(74,222,128,0); }
+    }
+    .pw-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .pw-plan {
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      text-align: center;
+    }
+    .pw-plan-free {
+      background: var(--surface-3);
+      border: 1px solid var(--border-2);
+    }
+    .pw-plan-pro {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-mid);
+    }
+    .pw-plan-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .pw-plan-pro .pw-plan-label { color: var(--accent); }
+    .pw-plan-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .pw-plan-pro .pw-plan-value { color: var(--accent); }
+    .pw-plan-note {
+      font-size: 10px;
+      color: var(--muted-2);
+      margin-top: 2px;
+    }
+    .pw-guarantee {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
     .modal-glyph {
       width: 50px;
       height: 50px;
@@ -408,6 +503,35 @@
     /* ── Utility ─────────────────────────────────────────────── */
     .sr-only { position: absolute; width: 1px; height: 1px; clip: rect(0,0,0,0); overflow: hidden; }
 
+    /* ── Focus visible (accessibility) ────────────────────────── */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    :focus:not(:focus-visible) {
+      outline: none;
+    }
+    .tab-btn:focus-visible,
+    .tool-card:focus-visible,
+    .convert-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 4px var(--accent-dim);
+    }
+    .theme-toggle:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* ── Reduced motion ───────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
     /* ── Responsive ──────────────────────────────────────────── */
     @media (max-width: 600px) {
       .nav-inner { padding: 0 16px; }
@@ -421,16 +545,23 @@
 </head>
 <body>
 
+<a href="#main-content" class="sr-only" style="position:fixed;top:8px;left:8px;z-index:9999;padding:8px 16px;background:var(--accent);color:#000;border-radius:var(--radius-sm);font-weight:600;font-size:14px;text-decoration:none;opacity:0;pointer-events:none;transition:opacity .15s" onfocus="this.style.opacity='1';this.style.pointerEvents='all'" onblur="this.style.opacity='0';this.style.pointerEvents='none'">Skip to content</a>
+
 <!-- ── Navbar ──────────────────────────────────────────────────── -->
 <nav class="nav" role="navigation" aria-label="Main">
   <div class="nav-inner">
-    <a href="{{ url_for('index') }}" class="logo" aria-label="Convertly home">
+    <a href="{{ url_for('index') }}" class="logo" aria-label="Convertly home" style="position:relative">
       <div class="logo-dot"></div>
       <span class="logo-name">Convertly</span>
+      <span id="whats-new-dot" style="display:none;position:absolute;top:-2px;right:-14px;width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px rgba(245,158,11,.5);cursor:pointer;animation:pulse-dot 2s ease infinite"></span>
     </a>
     <div class="quota-pill" id="quota-pill" title="Your free conversion quota">
       <div class="quota-dot" id="quota-dot"></div>
       <span><span class="quota-num" id="q-used">–</span>/<span class="quota-num" id="q-total">–</span>&nbsp;free</span>
+    </div>
+    <div id="stats-pill" class="quota-pill" title="Files converted this session" style="display:none;cursor:pointer">
+      <span style="font-size:13px;line-height:1">⚡</span>
+      <span><span class="quota-num" id="stats-count">0</span>&nbsp;done</span>
     </div>
     <button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode" title="Toggle light/dark mode">🌙</button>
   </div>
@@ -448,21 +579,31 @@
 {% endwith %}
 
 <!-- ── Page content ────────────────────────────────────────────── -->
-<main>{% block content %}{% endblock %}</main>
+<main id="main-content">{% block content %}{% endblock %}</main>
 
 <!-- ── Paywall Modal ───────────────────────────────────────────── -->
 <div class="overlay" id="paywall" role="dialog" aria-modal="true" aria-labelledby="pw-title">
-  <div class="modal">
+  <div class="modal modal-paywall">
+    <div class="pw-social"><span class="pw-social-dot"></span> 1,200+ users upgraded this month</div>
     <div class="modal-glyph">⚡</div>
     <h2 id="pw-title">Unlock More Conversions</h2>
     <p class="modal-sub">You've used your 3 free conversions. Get 20 more instantly — one-time payment, no subscription.</p>
-    <div class="modal-price">
-      <span class="price-sym">$</span>
-      <span class="price-amt">2</span>
-      <span class="price-label">.00&nbsp;one-time</span>
+
+    <div class="pw-compare">
+      <div class="pw-plan pw-plan-free">
+        <div class="pw-plan-label">Free</div>
+        <div class="pw-plan-value">3</div>
+        <div class="pw-plan-note">conversions</div>
+      </div>
+      <div class="pw-plan pw-plan-pro">
+        <div class="pw-plan-label">Pro</div>
+        <div class="pw-plan-value">23</div>
+        <div class="pw-plan-note">conversions</div>
+      </div>
     </div>
+
     <ul class="modal-feats">
-      <li><span class="chk">✓</span>20 conversions unlocked instantly</li>
+      <li><span class="chk">✓</span>20 extra conversions unlocked instantly</li>
       <li><span class="chk">✓</span>Every tool — PDF, Word, Excel, JPG &amp; more</li>
       <li><span class="chk">✓</span>No subscription or account required</li>
       <li><span class="chk">✓</span>Secure PayPal checkout</li>
@@ -484,7 +625,8 @@
       <div id="coupon-msg" style="font-size:12px;margin-top:6px;min-height:18px;text-align:center"></div>
     </div>
 
-    <button class="btn-ghost" id="pw-close-btn">Maybe later</button>
+    <div class="pw-guarantee">🔒 Secure checkout · instant delivery · satisfaction guaranteed</div>
+    <button class="btn-ghost" id="pw-close-btn" style="margin-top:12px">Maybe later</button>
   </div>
 </div>
 
@@ -497,7 +639,7 @@
     </a>
     <nav class="footer-links" aria-label="Footer">
       <a href="{{ url_for('privacy') }}">Privacy</a>
-      <a href="#">Terms</a>
+      <a href="{{ url_for('terms') }}">Terms</a>
       <a href="{{ url_for('support') }}">Support</a>
     </nav>
     <div class="footer-sec">🔒 Files deleted after processing</div>
@@ -591,26 +733,133 @@ document.addEventListener('DOMContentLoaded', function() {
 {% block extra_js %}{% endblock %}
 
 <script nonce="{{ csp_nonce }}">
-// ── Theme toggle ──────────────────────────────────────────
+// ── Theme toggle (auto-detect system preference) ─────────
 (function() {
   const btn = document.getElementById('themeToggle');
   if (!btn) return;
-  const stored = localStorage.getItem('theme');
-  if (stored === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-    btn.textContent = '☀️';
+
+  function setTheme(theme) {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      btn.textContent = '☀️';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      btn.textContent = '🌙';
+    }
   }
+
+  // Check stored preference first, then system preference
+  const stored = localStorage.getItem('theme');
+  if (stored) {
+    setTheme(stored);
+  } else {
+    const preferLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+    setTheme(preferLight ? 'light' : 'dark');
+  }
+
+  // Toggle on click — sets manual override
   btn.addEventListener('click', function() {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    if (isLight) {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('theme', 'dark');
-      btn.textContent = '🌙';
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-      localStorage.setItem('theme', 'light');
-      btn.textContent = '☀️';
+    const next = isLight ? 'dark' : 'light';
+    localStorage.setItem('theme', next);
+    setTheme(next);
+  });
+
+  // Listen for system changes — only if no manual override
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', function(e) {
+    if (!localStorage.getItem('theme')) {
+      setTheme(e.matches ? 'light' : 'dark');
     }
+  });
+})();
+</script>
+
+<!-- ── PWA: Service Worker + Install Prompt ─────────────────── -->
+<div id="pwa-install-banner" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:450;background:var(--surface-2);border:1px solid var(--accent-mid);border-radius:var(--radius);padding:14px 20px;box-shadow:var(--shadow-lg);display:none;align-items:center;gap:14px;max-width:420px;width:calc(100% - 32px);animation:fadeUp .4s var(--ease) both">
+  <div style="flex:1;min-width:0">
+    <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px">Install Convertly</div>
+    <div style="font-size:12px;color:var(--muted)">Add to home screen for quick access</div>
+  </div>
+  <button id="pwa-install-btn" style="padding:8px 16px;background:var(--accent);color:#081a0f;border:none;border-radius:var(--radius-sm);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;flex-shrink:0">Install</button>
+  <button id="pwa-dismiss-btn" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0;line-height:1" aria-label="Dismiss">✕</button>
+</div>
+
+<!-- What's New changelog panel -->
+<div id="whats-new-panel" style="display:none;position:fixed;top:calc(var(--nav-h) + 10px);left:50%;transform:translateX(-50%);z-index:450;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow-lg);max-width:360px;width:calc(100% - 32px);animation:fadeUp .3s var(--ease) both">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <span style="font-size:14px;font-weight:700;color:var(--text)">What's New</span>
+    <button id="whats-new-close" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 2px">✕</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--text-2);line-height:1.5">
+    <div><span style="color:var(--accent);font-weight:600">New</span> — Terms of Service &amp; redesigned Privacy page</div>
+    <div><span style="color:#60a5fa;font-weight:600">UX</span> — Category color coding (blue/orange/purple/red)</div>
+    <div><span style="color:#c084fc;font-weight:600">UX</span> — Success animation on download completion</div>
+    <div><span style="color:#fb923c;font-weight:600">Smart</span> — Drag files to auto-detect matching tools</div>
+    <div><span style="color:var(--accent);font-weight:600">A11y</span> — Keyboard shortcuts (press <span style="font-family:var(--mono);font-size:11px">?</span> for help)</div>
+    <div><span style="color:#f59e0b;font-weight:600">PWA</span> — Install as app for quick access</div>
+  </div>
+  <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
+    <span style="font-size:11px;color:var(--muted)">v2.0 — April 2026</span>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+// What's New badge
+(function() {
+  var VERSION = '2.0';
+  var seenKey = 'convertly-changelog-seen';
+  var dot = document.getElementById('whats-new-dot');
+  var panel = document.getElementById('whats-new-panel');
+  var closeBtn = document.getElementById('whats-new-close');
+
+  if (localStorage.getItem(seenKey) === VERSION) return;
+  if (dot) dot.style.display = 'block';
+
+  if (dot) dot.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  if (closeBtn) closeBtn.addEventListener('click', function() {
+    panel.style.display = 'none';
+    if (dot) dot.style.display = 'none';
+    localStorage.setItem(seenKey, VERSION);
+  });
+})();
+
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/static/sw.js', { scope: '/' }).catch(function() {});
+}
+
+// PWA Install Prompt
+(function() {
+  var deferredPrompt = null;
+  var banner = document.getElementById('pwa-install-banner');
+  var installBtn = document.getElementById('pwa-install-btn');
+  var dismissBtn = document.getElementById('pwa-dismiss-btn');
+
+  if (localStorage.getItem('pwa-dismissed')) return;
+
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (banner) banner.style.display = 'flex';
+  });
+
+  if (installBtn) installBtn.addEventListener('click', function() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function() {
+      deferredPrompt = null;
+      if (banner) banner.style.display = 'none';
+    });
+  });
+
+  if (dismissBtn) dismissBtn.addEventListener('click', function() {
+    if (banner) banner.style.display = 'none';
+    localStorage.setItem('pwa-dismissed', '1');
   });
 })();
 </script>

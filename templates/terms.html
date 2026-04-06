@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Terms of Service — Convertly{% endblock %}
+
+{% block extra_head %}
+<style>
+.terms-wrap {
+  max-width: 800px;
+  margin: 60px auto 80px;
+  padding: 0 24px;
+}
+.terms-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 48px 40px;
+}
+.terms-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+  letter-spacing: -.3px;
+}
+.terms-updated {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.terms-card h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 32px;
+  margin-bottom: 10px;
+  letter-spacing: -.2px;
+}
+.terms-card h2:first-of-type {
+  margin-top: 0;
+}
+.terms-card p,
+.terms-card li {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+.terms-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+.terms-card ul li {
+  padding-left: 20px;
+  position: relative;
+  margin-bottom: 8px;
+}
+.terms-card ul li::before {
+  content: '•';
+  position: absolute;
+  left: 4px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.terms-card a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.terms-card a:hover {
+  text-decoration: underline;
+}
+@media (max-width: 600px) {
+  .terms-wrap { margin: 40px auto 60px; }
+  .terms-card { padding: 28px 20px; border-radius: var(--radius); }
+  .terms-title { font-size: 22px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="terms-wrap">
+  <div class="terms-card">
+    <h1 class="terms-title">Terms of Service</h1>
+    <p class="terms-updated">Last updated: April 6, 2026</p>
+
+    <h2>1. Acceptance of Terms</h2>
+    <p>By accessing or using Convertly ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Service.</p>
+
+    <h2>2. Description of Service</h2>
+    <p>Convertly is a free online tool for converting, merging, splitting, compressing, translating, signing, editing, and otherwise processing PDF and document files. The Service is provided "as is" without warranties of any kind.</p>
+
+    <h2>3. Acceptable Use</h2>
+    <p>You agree not to:</p>
+    <ul>
+      <li>Upload files containing malware, viruses, or malicious code</li>
+      <li>Process documents containing illegal content</li>
+      <li>Use the Service for any purpose that violates applicable laws</li>
+      <li>Attempt to disrupt, overload, or interfere with the Service</li>
+      <li>Use automated tools to make excessive requests (rate limits apply)</li>
+    </ul>
+
+    <h2>4. File Handling & Privacy</h2>
+    <p>Your files are processed on our servers and <strong>automatically deleted after processing</strong>. We do not store, read, or share the contents of your files. All transfers are encrypted. For full details, see our <a href="/privacy">Privacy Policy</a>.</p>
+
+    <h2>5. Intellectual Property</h2>
+    <p>You retain full ownership of all files you upload and download through the Service. Convertly claims no rights to your content. We do not use your files for training, analytics, or any purpose beyond the conversion you requested.</p>
+
+    <h2>6. Free Tier & Quotas</h2>
+    <p>Free users receive a limited number of conversions per session. Once your free quota is exhausted, you may purchase additional conversions.</p>
+
+    <h2>7. Payments & Pro Access</h2>
+    <p>Pro access can be purchased via PayPal for a one-time fee of $2.00 USD. This grants 20 additional conversions and is <strong>non-refundable</strong>. Voucher codes may also be redeemed for additional conversions. Prices and quotas are subject to change.</p>
+
+    <h2>8. Service Availability</h2>
+    <p>We strive to keep the Service available at all times, but we do not guarantee uninterrupted access. The Service may be temporarily unavailable for maintenance, updates, or circumstances beyond our control. We are not liable for any loss resulting from downtime.</p>
+
+    <h2>9. Limitation of Liability</h2>
+    <p>To the maximum extent permitted by law, Convertly and its operators shall not be liable for any indirect, incidental, special, or consequential damages arising out of your use of the Service. Our total liability is limited to the amount you paid for the Service, if any.</p>
+
+    <h2>10. Changes to These Terms</h2>
+    <p>We may update these Terms from time to time. Changes will be reflected on this page with an updated "Last updated" date. Continued use of the Service after changes constitutes acceptance of the new Terms.</p>
+
+    <h2>11. Contact</h2>
+    <p>If you have questions about these Terms, please reach out via our <a href="/support">Support page</a>.</p>
+  </div>
+</div>
+{% endblock %}

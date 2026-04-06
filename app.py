@@ -3839,6 +3839,14 @@ def file_too_large(e):
 
 # ── SEO Routes ────────────────────────────────────────────────────────────
 
+@app.route('/static/sw.js')
+def service_worker():
+    """Serve service worker from /static/sw.js with root scope header."""
+    response = send_from_directory('static', 'sw.js', mimetype='application/javascript')
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
+
+
 @app.route('/sitemap.xml')
 def sitemap():
     return send_from_directory('static', 'sitemap.xml', mimetype='application/xml')
@@ -3856,6 +3864,12 @@ Sitemap: https://convertly-web.onrender.com/sitemap.xml
 def privacy():
     """Privacy Policy page."""
     return render_template("privacy.html")
+
+
+@app.route("/terms")
+def terms():
+    """Terms of Service page."""
+    return render_template("terms.html")
 
 
 @app.route("/support", methods=["GET", "POST"])
