@@ -6,18 +6,15 @@ RUN apt-get update && \
         libreoffice \
         libreoffice-writer \
         libreoffice-calc \
+        fontconfig \
         fonts-liberation \
         fonts-dejavu \
         fonts-noto \
-        fonts-noto-core \
         fonts-noto-cjk \
         fonts-noto-color-emoji \
         fonts-kacst \
-        fonts-kacst-one \
         fonts-hosny-amiri \
         fonts-sil-scheherazade \
-        fonts-arabeyes \
-        fonts-farsiweb \
         fonts-freefont-ttf \
         fonts-croscore \
     && apt-get clean \
