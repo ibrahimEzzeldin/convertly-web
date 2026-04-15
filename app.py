@@ -276,18 +276,24 @@ def word_to_pdf(src, out):
         )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
+        profile_dir = os.path.join(tmp_dir, "lo_profile")
+        profile_uri = "file:///" + profile_dir.replace("\\", "/").lstrip("/")
         result = subprocess.run(
             [
                 LIBREOFFICE_PATH,
                 "--headless",
                 "--norestore",
-                "--convert-to", "pdf",
+                "--nolockcheck",
+                "--nodefault",
+                "--nofirststartwizard",
+                f"-env:UserInstallation={profile_uri}",
+                "--convert-to", "pdf:writer_pdf_Export",
                 "--outdir", tmp_dir,
                 src,
             ],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120,
         )
 
         if result.returncode != 0:

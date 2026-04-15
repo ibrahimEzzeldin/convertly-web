@@ -8,8 +8,21 @@ RUN apt-get update && \
         libreoffice-calc \
         fonts-liberation \
         fonts-dejavu \
+        fonts-noto \
+        fonts-noto-core \
+        fonts-noto-cjk \
+        fonts-noto-color-emoji \
+        fonts-kacst \
+        fonts-kacst-one \
+        fonts-hosny-amiri \
+        fonts-sil-scheherazade \
+        fonts-arabeyes \
+        fonts-farsiweb \
+        fonts-freefont-ttf \
+        fonts-croscore \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -fv
 
 WORKDIR /app
 
