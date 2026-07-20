@@ -496,6 +496,24 @@ def google_verification():
     return "google-site-verification: google4bbdce78d1b4593c.html"
 
 
+@app.route("/.well-known/assetlinks.json")
+def assetlinks():
+    """Digital Asset Links for the Android TWA.
+
+    Proves this origin and the Play app share an owner. Without a 200 here the
+    TWA falls back to rendering with a Chrome address bar. Fingerprints live in
+    static/assetlinks.json so rotating a signing key is a content change rather
+    than a code change — which matters because Play App Signing can re-sign with
+    a key we never hold locally.
+    """
+    path = os.path.join(app.static_folder, "assetlinks.json")
+    if not os.path.exists(path):
+        # Not yet provisioned — better an explicit empty statement list than a
+        # 404 that looks like a routing bug during TWA verification.
+        return jsonify([]), 404
+    return send_file(path, mimetype="application/json")
+
+
 @app.route("/convert", methods=["POST"])
 @limiter.limit(os.getenv("CONVERT_RATE_LIMIT", "20 per minute; 200 per hour"))
 def convert():

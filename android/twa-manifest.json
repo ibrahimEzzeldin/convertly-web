@@ -1,0 +1,48 @@
+{
+  "packageId": "com.convertly.app",
+  "host": "convertly-web.onrender.com",
+  "name": "Convertly — Free PDF Converter",
+  "launcherName": "Convertly",
+  "display": "standalone",
+  "themeColor": "#0D0D10",
+  "themeColorDark": "#0D0D10",
+  "navigationColor": "#0D0D10",
+  "navigationColorDark": "#0D0D10",
+  "navigationDividerColor": "#0D0D10",
+  "navigationDividerColorDark": "#0D0D10",
+  "backgroundColor": "#0D0D10",
+  "enableNotifications": true,
+  "startUrl": "/?src=twa",
+  "iconUrl": "https://convertly-web.onrender.com/static/icons/icon-512.png",
+  "maskableIconUrl": "https://convertly-web.onrender.com/static/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "convertly"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 4,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://convertly-web.onrender.com/static/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "playBilling": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": true
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://convertly-web.onrender.com/",
+  "minSdkVersion": 23,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": [],
+  "appVersion": "1.0.0"
+}

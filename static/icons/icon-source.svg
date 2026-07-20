@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Convertly app icon — "any" purpose (rounded surface).
+    The C is a stroked arc, not a <text> element, so it renders identically
+    without depending on DM Sans being installed on the rasterizing machine.
+  -->
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#4ade80"/>
+      <stop offset="60%"  stop-color="#a3e635"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark surface background -->
+  <rect width="512" height="512" rx="128" fill="#141418"/>
+
+  <!-- Subtle green rim. The favicon uses 1.5/32 stroke, which scales to 24 here
+       and reads as a heavy frame at icon size; 10 keeps it a rim, not a border. -->
+  <rect x="5" y="5" width="502" height="502" rx="124"
+        fill="none" stroke="rgba(74,222,128,0.22)" stroke-width="10"/>
+
+  <!-- C letter in brand gradient: 260° arc, open to the right -->
+  <path d="M 338.3 158.0 A 128 128 0 1 0 338.3 354.0"
+        fill="none" stroke="url(#g)" stroke-width="72" stroke-linecap="round"/>
+</svg>

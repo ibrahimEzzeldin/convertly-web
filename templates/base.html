@@ -17,6 +17,27 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Convertly">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+  <!-- Runtime detection. Google requires Play Billing for digital goods bought
+       inside an Android app, so the TWA must not surface the PayPal path — and
+       must not link out to it either, which is equally disallowed outside the
+       US programs. Runs before paint so no payment UI ever flashes in-app.
+       document.referrer only carries android-app:// on the entry navigation,
+       hence the sessionStorage latch for subsequent in-app navigations. -->
+  <script nonce="{{ csp_nonce }}">
+  (function () {
+    try {
+      var isTwa = document.referrer.indexOf('android-app://') === 0 ||
+                  sessionStorage.getItem('runtime') === 'twa' ||
+                  new URLSearchParams(location.search).get('src') === 'twa';
+      if (isTwa) {
+        sessionStorage.setItem('runtime', 'twa');
+        document.documentElement.setAttribute('data-runtime', 'twa');
+      }
+    } catch (e) { /* storage blocked (private mode) — fall through to web UI */ }
+  })();
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -447,6 +468,17 @@
     }
     .btn-paypal:hover { opacity: .9; transform: translateY(-1px); }
 
+    /* Play policy: no web payment path inside the Android app. */
+    html[data-runtime="twa"] .web-pay-only { display: none !important; }
+    .twa-pay-only { display: none; }
+    html[data-runtime="twa"] .twa-pay-only { display: block; }
+    .twa-note {
+      margin: 4px 0 0; padding: 14px 16px;
+      background: var(--surface-3); border: 1px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      font-size: 13px; color: var(--muted); text-align: center; line-height: 1.5;
+    }
+
     .btn-ghost {
       width: 100%;
       padding: 10px;
@@ -584,12 +616,16 @@
 <!-- ── Paywall Modal ───────────────────────────────────────────── -->
 <div class="overlay" id="paywall" role="dialog" aria-modal="true" aria-labelledby="pw-title">
   <div class="modal modal-paywall">
-    <div class="pw-social"><span class="pw-social-dot"></span> 1,200+ users upgraded this month</div>
+    <div class="pw-social web-pay-only"><span class="pw-social-dot"></span> 1,200+ users upgraded this month</div>
     <div class="modal-glyph">⚡</div>
-    <h2 id="pw-title">Unlock More Conversions</h2>
-    <p class="modal-sub">You've used your 3 free conversions. Get 20 more instantly — one-time payment, no subscription.</p>
+    <h2 id="pw-title" class="web-pay-only">Unlock More Conversions</h2>
+    <p class="modal-sub web-pay-only">You've used your 3 free conversions. Get 20 more instantly — one-time payment, no subscription.</p>
 
-    <div class="pw-compare">
+    <!-- In-app copy: no purchase is offered here yet, so nothing may promise one. -->
+    <h2 id="pw-title-twa" class="twa-pay-only">You're Out of Free Conversions</h2>
+    <p class="modal-sub twa-pay-only">You've used your 3 free conversions.</p>
+
+    <div class="pw-compare web-pay-only">
       <div class="pw-plan pw-plan-free">
         <div class="pw-plan-label">Free</div>
         <div class="pw-plan-value">3</div>
@@ -602,16 +638,22 @@
       </div>
     </div>
 
-    <ul class="modal-feats">
+    <ul class="modal-feats web-pay-only">
       <li><span class="chk">✓</span>20 extra conversions unlocked instantly</li>
       <li><span class="chk">✓</span>Every tool — PDF, Word, Excel, JPG &amp; more</li>
       <li><span class="chk">✓</span>No subscription or account required</li>
-      <li><span class="chk">✓</span>Secure PayPal checkout</li>
+      <li class="web-pay-only"><span class="chk">✓</span>Secure PayPal checkout</li>
     </ul>
-    <form action="{{ url_for('create_paypal_order') }}" method="POST">
+    <form action="{{ url_for('create_paypal_order') }}" method="POST" class="web-pay-only" id="paypal-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn-paypal">💳&nbsp;&nbsp;Pay $2.00 with PayPal</button>
     </form>
+
+    <!-- Shown only inside the Android app. Deliberately offers no purchase and
+         no link out — Play Billing lands in Phase 3. -->
+    <div class="twa-pay-only">
+      <p class="twa-note">More conversions are coming to the app soon.<br>Your free conversions reset regularly.</p>
+    </div>
 
     <!-- Coupon / voucher section -->
     <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
@@ -625,7 +667,7 @@
       <div id="coupon-msg" style="font-size:12px;margin-top:6px;min-height:18px;text-align:center"></div>
     </div>
 
-    <div class="pw-guarantee">🔒 Secure checkout · instant delivery · satisfaction guaranteed</div>
+    <div class="pw-guarantee web-pay-only">🔒 Secure checkout · instant delivery · satisfaction guaranteed</div>
     <button class="btn-ghost" id="pw-close-btn" style="margin-top:12px">Maybe later</button>
   </div>
 </div>
@@ -680,6 +722,17 @@ document.getElementById('paywall').addEventListener('click', e => {
 document.addEventListener('DOMContentLoaded', function() {
   var pwClose = document.getElementById('pw-close-btn');
   if (pwClose) pwClose.addEventListener('click', closePw);
+
+  /* Defence in depth: inside the TWA, drop the PayPal form from the DOM rather
+     than only hiding it with CSS, so it cannot be submitted by any route. */
+  if (document.documentElement.getAttribute('data-runtime') === 'twa') {
+    var ppForm = document.getElementById('paypal-form');
+    if (ppForm && ppForm.parentNode) ppForm.parentNode.removeChild(ppForm);
+    /* The web heading is hidden in-app, so point the dialog label at the one
+       that is actually rendered — otherwise screen readers announce nothing. */
+    var pw = document.getElementById('paywall');
+    if (pw) pw.setAttribute('aria-labelledby', 'pw-title-twa');
+  }
 
   /* Coupon / voucher redemption */
   var couponInput = document.getElementById('coupon-input');
