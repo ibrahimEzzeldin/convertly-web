@@ -12,7 +12,7 @@
   "navigationDividerColor": "#0d0d10",
   "navigationDividerColorDark": "#0d0d10",
   "backgroundColor": "#0d0d10",
-  "enableNotifications": false,
+  "enableNotifications": true,
   "startUrl": "/?src=twa",
   "iconUrl": "https://convertly-web.onrender.com/static/icons/icon-512.png",
   "maskableIconUrl": "https://convertly-web.onrender.com/static/icons/icon-maskable-512.png",
