@@ -17,3 +17,8 @@ __pycache__/
 app.log
 server.log
 quota.db
+
+# Android / TWA signing material — losing it is unrecoverable, committing it is worse
+*.keystore
+*.jks
+android/keystore.properties
