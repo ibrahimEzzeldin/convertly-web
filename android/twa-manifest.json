@@ -21,7 +21,7 @@
     "alias": "convertly"
   },
   "appVersionName": "1.0.0",
-  "appVersionCode": 3,
+  "appVersionCode": 4,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://convertly-web.onrender.com/static/manifest.json",
