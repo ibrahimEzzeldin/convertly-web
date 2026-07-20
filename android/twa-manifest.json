@@ -1,5 +1,5 @@
 {
-  "packageId": "com.convertly.app",
+  "packageId": "com.convertlyweb.app",
   "host": "convertly-web.onrender.com",
   "name": "Convertly — Free PDF Converter",
   "launcherName": "Convertly",
@@ -21,7 +21,7 @@
     "alias": "convertly"
   },
   "appVersionName": "1.0.0",
-  "appVersionCode": 4,
+  "appVersionCode": 5,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://convertly-web.onrender.com/static/manifest.json",
