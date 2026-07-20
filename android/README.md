@@ -11,7 +11,7 @@ which is interactive and can't run unattended.
 
 | Setting | Why |
 |---|---|
-| `packageId: com.convertly.app` | **Permanent.** Cannot change after the first upload |
+| `packageId: com.convertlyweb.app` | **Permanent.** Cannot change after the first upload |
 | `startUrl: "/?src=twa"` | Makes in-app detection deterministic. The `android-app://` referrer only survives the entry navigation, so relying on it alone is fragile |
 | `features.playBilling.enabled` | Puts `com.android.vending.BILLING` in build #1. Play won't let you create the $2 in-app product until a build declaring that permission is uploaded — so including it now avoids a throwaway upload later |
 | `iconUrl` / `maskableIconUrl` | Pulled from production, generated in `static/icons/` |
@@ -69,7 +69,7 @@ sideloading during testing.
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "com.convertly.app",
+    "package_name": "com.convertlyweb.app",
     "sha256_cert_fingerprints": ["<fingerprint>"]
   }
 }]
