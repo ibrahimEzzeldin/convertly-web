@@ -557,6 +557,33 @@ def convert():
     file.save(src)
     logger.info("Converting [%s] %s", mode, safe_name)
 
+    # ── Reject scanned/image-only PDFs before doing any work ───────────────
+    # pdf2docx happily "succeeds" on a scanned PDF: it logs "Words count: 0",
+    # writes a valid-but-empty .docx, and we would then charge a conversion for
+    # a blank file. Catch it here so the user keeps their credit and gets a
+    # real explanation. /translate-pdf already does this; /convert did not.
+    if file_ext == ".pdf":
+        try:
+            import fitz as _fitz_scan
+            with _fitz_scan.open(src) as _doc_scan:
+                _has_text = any(
+                    _doc_scan.load_page(i).get_text().strip()
+                    for i in range(_doc_scan.page_count)
+                )
+        except Exception as exc:
+            # Never block a conversion because the pre-check itself failed.
+            logger.warning("Scanned-PDF pre-check failed for %s: %s", safe_name, exc)
+            _has_text = True
+
+        if not _has_text:
+            logger.warning("SCANNED_PDF_REJECTED mode=%s file=%s", mode, safe_name)
+            if os.path.exists(src):
+                os.remove(src)
+            return jsonify({
+                "error": "No text found in PDF. This tool only works on "
+                         "text-based PDFs, not scanned images."
+            }), 400
+
     try:
         _run_with_timeout(MODES[mode]["fn"], (src, out), app.config["CONVERSION_TIMEOUT"])
     except TimeoutError as exc:
