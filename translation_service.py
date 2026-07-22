@@ -81,10 +81,23 @@ def split_into_chunks(text: str, max_size: int = MAX_CHUNK_SIZE) -> list:
     return chunks or [text]
 
 
+_deepl_absent_logged = False
+
+
 def _translate_deepl(text: str, source_lang: str, target_lang: str) -> Optional[str]:
     """Translate using DeepL free API. Returns None if unavailable."""
     api_key = os.getenv("DEEPL_API_KEY", "")
     if not api_key:
+        # Log once at startup-ish rather than per chunk. Without this it is
+        # invisible that DeepL is configured in code but never actually used,
+        # and every translation silently rides MyMemory's small free tier.
+        global _deepl_absent_logged
+        if not _deepl_absent_logged:
+            _deepl_absent_logged = True
+            logger.warning(
+                "DEEPL_API_KEY is not set — all translation will use MyMemory "
+                "(free tier: ~5k chars/day anonymous, 50k with MYMEMORY_EMAIL)."
+            )
         return None
 
     # DeepL uses uppercase 2-letter codes
@@ -169,33 +182,78 @@ def _translate_mymemory(text: str, from_code: str, to_code: str) -> Optional[str
     return None
 
 
+def _translate_chunk_detailed(text: str, from_code: str, to_code: str):
+    """Translate one chunk. Returns (text, provider).
+
+    provider is "deepl", "mymemory", or None when every provider failed — in
+    which case the ORIGINAL text is returned so the caller can still assemble a
+    document, but it now knows the chunk was not actually translated.
+    """
+    if not text or not text.strip():
+        return text, "skip"
+
+    # Try DeepL first (higher quality, more reliable)
+    result = _translate_deepl(text, from_code, to_code)
+    if result is not None:
+        return result, "deepl"
+
+    # Fall back to MyMemory
+    result = _translate_mymemory(text, from_code, to_code)
+    if result is not None:
+        return result, "mymemory"
+
+    # Both providers failed — return original text, flagged as a failure.
+    logger.warning("TRANSLATE_SILENT_FALLBACK chunk not translated: '%s'", text[:40])
+    return text, None
+
+
 def translate_chunk(text: str, from_code: str, to_code: str) -> str:
     """Translate one chunk, trying DeepL first then falling back to MyMemory.
 
     Returns original text if all providers fail (safe fallback).
     """
+    return _translate_chunk_detailed(text, from_code, to_code)[0]
+
+
+def translate_text_detailed(text: str, from_code: str, to_code: str):
+    """Translate full text by chunking. Returns (translated_text, stats).
+
+    stats = {"total": int, "failed": int, "providers": [str]}
+
+    Callers should inspect stats rather than trusting the text: when every
+    provider fails this function still returns readable output, but it is the
+    ORIGINAL untranslated text. Silently handing that back to a user — who has
+    just spent a conversion credit — reads as a broken product, so routes turn
+    a total failure into a real error.
+    """
     if not text or not text.strip():
-        return text
+        return text, {"total": 0, "failed": 0, "providers": []}
 
-    # Try DeepL first (higher quality, more reliable)
-    result = _translate_deepl(text, from_code, to_code)
-    if result is not None:
-        return result
+    chunks = split_into_chunks(text)
+    out, providers, failed = [], set(), 0
+    for c in chunks:
+        translated, provider = _translate_chunk_detailed(c, from_code, to_code)
+        out.append(translated)
+        if provider is None:
+            failed += 1
+        elif provider != "skip":
+            providers.add(provider)
 
-    # Fall back to MyMemory
-    result = _translate_mymemory(text, from_code, to_code)
-    if result is not None:
-        return result
-
-    # Both providers failed — return original text unchanged
-    logger.warning("All translation providers failed for chunk: '%s'", text[:40])
-    return text
+    stats = {"total": len(chunks), "failed": failed, "providers": sorted(providers)}
+    logger.info(
+        "translate_text: %d chars → %d chunks, %s→%s, failed=%d, via=%s",
+        len(text), len(chunks), from_code, to_code, failed, ",".join(stats["providers"]) or "none",
+    )
+    if failed:
+        logger.warning("TRANSLATE_PARTIAL_FAILURE %d/%d chunks untranslated (%s→%s)",
+                       failed, len(chunks), from_code, to_code)
+    return " ".join(out), stats
 
 
 def translate_text(text: str, from_code: str, to_code: str) -> str:
-    """Translate full text by chunking. No sleeps. No crashes."""
-    if not text or not text.strip():
-        return text
-    chunks = split_into_chunks(text)
-    logger.info("translate_text: %d chars → %d chunks, %s→%s", len(text), len(chunks), from_code, to_code)
-    return " ".join(translate_chunk(c, from_code, to_code) for c in chunks)
+    """Translate full text by chunking. No sleeps. No crashes.
+
+    Backwards-compatible wrapper; prefer translate_text_detailed() so failures
+    are visible.
+    """
+    return translate_text_detailed(text, from_code, to_code)[0]

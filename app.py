@@ -10,7 +10,16 @@ from dotenv import load_dotenv
 import os, uuid, time, logging, threading, secrets, shutil
 import requests as _requests
 from pathlib import Path
-from translation_service import translate_text as _ts_translate_text
+from translation_service import (
+    translate_text as _ts_translate_text,
+    translate_text_detailed as _ts_translate_detailed,
+)
+
+# Shown when every chunk fell through to the untranslated original.
+_TRANSLATE_UNAVAILABLE_MSG = (
+    "Translation is temporarily unavailable (the free translation service is "
+    "rate limited). Please try again in a few minutes."
+)
 from datetime import datetime as _datetime
 
 # ── Security Manager (Quota, Auth, DDoS Protection) ─────────────────────────
@@ -556,6 +565,33 @@ def convert():
     out = os.path.splitext(src)[0] + MODES[mode]["ext"]
     file.save(src)
     logger.info("Converting [%s] %s", mode, safe_name)
+
+    # ── Reject scanned/image-only PDFs before doing any work ───────────────
+    # pdf2docx happily "succeeds" on a scanned PDF: it logs "Words count: 0",
+    # writes a valid-but-empty .docx, and we would then charge a conversion for
+    # a blank file. Catch it here so the user keeps their credit and gets a
+    # real explanation. /translate-pdf already does this; /convert did not.
+    if file_ext == ".pdf":
+        try:
+            import fitz as _fitz_scan
+            with _fitz_scan.open(src) as _doc_scan:
+                _has_text = any(
+                    _doc_scan.load_page(i).get_text().strip()
+                    for i in range(_doc_scan.page_count)
+                )
+        except Exception as exc:
+            # Never block a conversion because the pre-check itself failed.
+            logger.warning("Scanned-PDF pre-check failed for %s: %s", safe_name, exc)
+            _has_text = True
+
+        if not _has_text:
+            logger.warning("SCANNED_PDF_REJECTED mode=%s file=%s", mode, safe_name)
+            if os.path.exists(src):
+                os.remove(src)
+            return jsonify({
+                "error": "No text found in PDF. This tool only works on "
+                         "text-based PDFs, not scanned images."
+            }), 400
 
     try:
         _run_with_timeout(MODES[mode]["fn"], (src, out), app.config["CONVERSION_TIMEOUT"])
@@ -2667,44 +2703,11 @@ def _split_to_chunks(text, max_size=_MAX_CHUNK_SIZE):
     return chunks or [text[:max_size]]
 
 
-def _translate_one_chunk(text, src_code, target_code):
-    """Translate a single chunk via MyMemory with exponential-backoff retry."""
-    for attempt in range(_MAX_RETRIES):
-        try:
-            resp = _requests.get(
-                _MYMEMORY_URL,
-                params={"q": text, "langpair": f"{src_code}|{target_code}"},
-                timeout=15,
-            )
-            data = resp.json()
-            translated = data.get("responseData", {}).get("translatedText", "")
-            # Detect rate-limit signals
-            if resp.status_code == 429 or data.get("responseStatus") == 429 \
-                    or "MYMEMORY WARNING" in translated:
-                wait = 3 * (attempt + 1)
-                logger.warning("MyMemory rate limit hit, retrying in %ds (attempt %d)", wait, attempt + 1)
-                time.sleep(wait)
-                continue
-            if data.get("responseStatus") == 200:
-                return translated
-            raise Exception(f"MyMemory error {data.get('responseStatus')}: {data.get('responseDetails', '')}")
-        except _requests.RequestException:
-            time.sleep(2)
-    logger.warning("All retries failed for chunk, returning original text")
-    return text   # graceful fallback — return untranslated chunk
-
-
-def _mymemory_translate(text, target_code, src_code="en"):
-    """Translate text via MyMemory, chunking at sentence boundaries."""
-    if not text.strip():
-        return text
-    chunks = _split_to_chunks(text)
-    out = []
-    for idx, chunk in enumerate(chunks):
-        if idx > 0:
-            time.sleep(_CHUNK_DELAY)
-        out.append(_translate_one_chunk(chunk, src_code, target_code))
-    return " ".join(out)
+# NOTE: a second, unused MyMemory translation engine (_split_to_chunks /
+# _translate_one_chunk / _mymemory_translate) lived here. It was dead code —
+# nothing called it — and it passed language codes to MyMemory unmapped, so
+# Chinese would have sent zh-CN/zh-TW, the exact region variants that service
+# rejects. translation_service.py is the single engine now.
 
 
 @app.route("/extract-text-region", methods=["POST"])
@@ -2821,8 +2824,20 @@ def translate_endpoint():
         return jsonify({"translatedText": text})
 
     try:
-        translated = _ts_translate_text(text, from_code, to_code)
-        return jsonify({"translatedText": translated})
+        translated, stats = _ts_translate_detailed(text, from_code, to_code)
+        # Every chunk fell back to the original — returning it as "translated"
+        # would be a lie the user pays for. Surface it instead.
+        if stats["total"] and stats["failed"] == stats["total"]:
+            logger.warning("TRANSLATE_FAILED /translate %s→%s (%d chunks)",
+                           from_code, to_code, stats["total"])
+            return jsonify({"error": _TRANSLATE_UNAVAILABLE_MSG}), 503
+        payload = {"translatedText": translated}
+        if stats["failed"]:
+            payload["warning"] = (
+                f"{stats['failed']} of {stats['total']} sections could not be "
+                "translated and are shown in the original language."
+            )
+        return jsonify(payload)
     except Exception as exc:
         logger.error("/translate error (%s→%s): %s", from_code, to_code, exc)
         return jsonify({"error": str(exc)}), 500
@@ -2877,14 +2892,27 @@ def translate_chunk():
                 }), 402
 
         target_code = _MYMEMORY_LANG_CODE.get(target_lang) or _MYMEMORY_LANG_CODE.get(target_lang.lower()) or target_lang.lower()
-        translated  = _ts_translate_text(text, from_code, target_code)
+        translated, stats = _ts_translate_detailed(text, from_code, target_code)
+
+        # Nothing was actually translated — do not spend the user's daily
+        # allowance on untranslated text.
+        if stats["total"] and stats["failed"] == stats["total"]:
+            logger.warning("TRANSLATE_FAILED /translate-chunk %s→%s (%d chunks)",
+                           from_code, target_code, stats["total"])
+            return jsonify({"error": _TRANSLATE_UNAVAILABLE_MSG}), 503
 
         remaining = None
         if not is_pro:
             remaining = FREE_DAILY_TRANSLATIONS - used
 
         is_rtl = target_lang in _RTL_LANG_NAMES or target_code in {"ar", "he", "ar-SA", "he-IL", "ar-sa", "he-il"}
-        return jsonify({"translatedText": translated, "remaining": remaining, "isRtl": is_rtl})
+        resp = {"translatedText": translated, "remaining": remaining, "isRtl": is_rtl}
+        if stats["failed"]:
+            resp["warning"] = (
+                f"{stats['failed']} of {stats['total']} sections could not be "
+                "translated and are shown in the original language."
+            )
+        return jsonify(resp)
 
     except Exception as exc:
         logger.error("translate-chunk error: %s", exc)
@@ -2993,6 +3021,7 @@ def translate_pdf_route():
                         break
 
         translated_pages = []
+        _tr_total = _tr_failed = 0
         for page_text in pages_text:
             if page_text is None:
                 translated_pages.append(None)  # keep original page (not selected)
@@ -3000,7 +3029,21 @@ def translate_pdf_route():
             if not page_text.strip():
                 translated_pages.append("")
                 continue
-            translated_pages.append(_ts_translate_text(page_text, from_code, target_code))
+            _page_out, _page_stats = _ts_translate_detailed(page_text, from_code, target_code)
+            _tr_total  += _page_stats["total"]
+            _tr_failed += _page_stats["failed"]
+            translated_pages.append(_page_out)
+
+        # Every chunk fell back to the original. Building a "translated" PDF
+        # that is still entirely in the source language — and charging a
+        # conversion for it — is the failure mode users rate one star for.
+        if _tr_total and _tr_failed == _tr_total:
+            logger.warning("TRANSLATE_FAILED /translate-pdf %s→%s (%d chunks)",
+                           from_code, target_code, _tr_total)
+            return jsonify({"error": _TRANSLATE_UNAVAILABLE_MSG}), 503
+        if _tr_failed:
+            logger.warning("TRANSLATE_PARTIAL /translate-pdf %d/%d chunks untranslated",
+                           _tr_failed, _tr_total)
 
         # ── Build output PDF ─────────────────────────────────────────────────
         import textwrap as _textwrap
