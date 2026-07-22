@@ -24,5 +24,11 @@ services:
         sync: false
       - key: MYMEMORY_EMAIL
         sync: false
+      # Optional. When set, DeepL is used as the primary translation engine and
+      # MyMemory becomes the fallback. Unset, ALL translation rides MyMemory's
+      # free tier (~5k chars/day anonymous, 50k with MYMEMORY_EMAIL), which a
+      # single large PDF can exhaust.
+      - key: DEEPL_API_KEY
+        sync: false
       - key: FLASK_ENV
         sync: false
